@@ -1,13 +1,371 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Umfrage – Teil 1</title>
+<style>
+  :root {
+    --bg: #eef2f5;
+    --card: #ffffff;
+    --ink: #1c2b33;
+    --muted: #5d6f79;
+    --line: #cfd9df;
+    --accent: #0f6b6b;
+    --accent-dark: #0a4f4f;
+    --error: #b3261e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: Georgia, "Times New Roman", serif;
+    line-height: 1.55;
+    display: flex;
+    justify-content: center;
+    padding: 24px 16px;
+  }
+  main { width: 100%; max-width: 640px; }
+  h1 { font-size: 1.7rem; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 20px; }
+
+  .progress { height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; }
+  .progress > div { height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+  .counter { font-family: system-ui, sans-serif; font-size: .85rem; color: var(--muted); margin: 8px 0 16px; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 28px 24px;
+  }
+  .section { font-family: system-ui, sans-serif; font-size: .9rem; color: var(--accent); margin: 0 0 6px; font-weight: 600; }
+  .question { font-size: 1.25rem; margin: 0 0 18px; font-weight: normal; }
+  .hint { font-family: system-ui, sans-serif; font-size: .85rem; color: var(--muted); margin: -10px 0 14px; }
+
+  .options { display: flex; flex-direction: column; gap: 8px; font-family: system-ui, sans-serif; }
+  .option {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .option:hover { border-color: var(--accent); }
+  .option:has(input:checked) { border-color: var(--accent); background: #e6f2f2; }
+  .option input { accent-color: var(--accent); width: 18px; height: 18px; margin: 0; }
+
+  input[type="text"], input[type="number"], select {
+    width: 100%;
+    padding: 12px 14px;
+    font: 1rem system-ui, sans-serif;
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+  }
+  .extra { margin-top: 14px; }
+  .extra label { display: block; font-family: system-ui, sans-serif; font-size: .9rem; color: var(--muted); margin-bottom: 6px; }
+
+  :focus-visible { outline: 3px solid #7cc4c4; outline-offset: 2px; }
+
+  .error { color: var(--error); font-family: system-ui, sans-serif; font-size: .9rem; margin: 12px 0 0; min-height: 1.3em; }
+
+  .nav { display: flex; justify-content: space-between; margin-top: 20px; gap: 12px; }
+  button {
+    font: 600 1rem system-ui, sans-serif;
+    padding: 12px 22px;
+    border-radius: 8px;
+    border: 1px solid var(--accent);
+    cursor: pointer;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: var(--accent-dark); }
+  .btn-secondary { background: transparent; color: var(--accent); }
+  .btn-secondary:hover { background: #e6f2f2; }
+  button:disabled { opacity: .4; cursor: default; }
+
+  .result h2 { margin-top: 0; }
+  .result dl { font-family: system-ui, sans-serif; margin: 0 0 20px; }
+  .result dt { font-weight: 600; margin-top: 12px; font-size: .9rem; color: var(--muted); }
+  .result dd { margin: 2px 0 0; }
+
+  @media (prefers-reduced-motion: reduce) { .progress > div { transition: none; } }
+</style>
 </head>
 <body>
-    <p>Das ist eine Spanisch Umfrage</p>
-    <p>Bis du schon aufgeregt?
-    </p>
+<main>
+  <h1>Umfrage</h1>
+  <p class="sub">Teil 1: Fragen zur Person und zum Sprachgebrauch</p>
+
+  <div id="progress-wrap">
+    <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100"><div id="bar"></div></div>
+    <p class="counter" id="counter"></p>
+  </div>
+
+  <section class="card" id="card" aria-live="polite"></section>
+</main>
+
+<script>
+// ---------- Fragen ----------
+// type: text | number | radio | checkbox | select
+// extra: optionales zusätzliches Textfeld (nicht verpflichtend)
+const questions = [
+  { section: "Fragen zur Person", id: "alter", type: "number",
+    text: "Wie alt sind Sie?", min: 1, max: 120 },
+
+  { section: "Fragen zur Person", id: "geschlecht", type: "radio",
+    text: "Kennzeichnen Sie Ihr Geschlecht:",
+    options: ["männlich", "weiblich", "divers"] },
+
+  { section: "Fragen zur Person", id: "bildung", type: "radio",
+    text: "Über welchen höchsten Bildungsgrad verfügen Sie?",
+    options: [
+      "Ich bin im Kindergarten",
+      "Ich bin in der Grundschule (Klasse unten angeben)",
+      "Ich bin in der Sekundarstufe (Klasse unten angeben)",
+      "Schule abgeschlossen",
+      "Ich besuche / habe abgeschlossen die Berufsschule (ПТУ)",
+      "Ich mache / habe abgeschlossen den Bachelor",
+      "Ich mache / habe abgeschlossen den Master"
+    ],
+    extra: { id: "bildung_praezisierung", label: "Präzisierung (z. B. Klasse):" } },
+
+  { section: "Fragen zur Person", id: "herkunft", type: "text",
+    text: "Aus welchem Land kommen Sie ursprünglich?" },
+
+  { section: "Fragen zur Person", id: "selbstbild", type: "text",
+    text: "Wie nehmen Sie sich persönlich wahr? Identifizieren Sie sich mit einem Begriff.",
+    hint: "z. B. Russe; Tatare; Ukrainer; Huzule; Katalaner; Europäer; Uraler etc." },
+
+  { section: "Fragen zur Person", id: "wohnsituation", type: "radio",
+    text: "Mit wem wohnen Sie zusammen?",
+    options: ["Allein", "Mit meinem Partner", "Mit meinem Partner und Kindern",
+              "Mit meinen Kindern", "Mit meinen Eltern", "Sonstiges"],
+    extra: { id: "partner_identifikation", label: "Falls ein Partner da ist, identifizieren Sie ihn:" } },
+
+  { section: "Fragen zur Person", id: "dauer_spanien", type: "text",
+    text: "Wie lange wohnen Sie in Spanien?" },
+
+  { section: "Fragen zur Person", id: "region", type: "select",
+    text: "Ich wohne zurzeit in:",
+    options: ["Andalusien", "Aragonien", "Asturien", "Balearische Inseln", "Baskenland",
+              "Valencia", "Galicien", "Kanarische Inseln", "Kantabrien", "Kastilien-La Mancha",
+              "Kastilien und León", "Katalonien", "Madrid", "Murcia", "Navarra", "La Rioja",
+              "Extremadura", "Ceuta", "Melilla"] },
+
+  { section: "Fragen zur Person", id: "bleiben", type: "radio",
+    text: "Haben Sie vor, in Spanien / einem spanischsprachigen Land ansässig zu werden?",
+    options: ["Definitiv", "Gut wahrscheinlich", "Eher nicht", "Auf gar keinen Fall", "Weiß ich noch nicht"] },
+
+  { section: "Fragen zum Sprachgebrauch im Alltag", id: "muttersprache", type: "checkbox",
+    text: "Welche Sprache/n empfinden Sie als Ihre Muttersprache?",
+    hint: "Mehr als eine Antwort möglich.",
+    options: ["Russisch", "Ukrainisch", "Weißrussisch"],
+    other: true }
+];
+
+// ---------- Zustand ----------
+const answers = {};
+let current = 0;
+
+const card = document.getElementById("card");
+const bar = document.getElementById("bar");
+const counter = document.getElementById("counter");
+const progress = document.querySelector(".progress");
+
+// ---------- Hilfsfunktionen ----------
+const esc = s => String(s).replace(/[&<>"']/g, c =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+function optionHTML(type, name, value, checked) {
+  return `<label class="option">
+    <input type="${type}" name="${name}" value="${esc(value)}" ${checked ? "checked" : ""}>
+    <span>${esc(value)}</span></label>`;
+}
+
+// ---------- Rendern ----------
+function render() {
+  const q = questions[current];
+  const saved = answers[q.id];
+  let input = "";
+
+  if (q.type === "text") {
+    input = `<input type="text" id="field" autocomplete="off" value="${esc(saved || "")}">`;
+  } else if (q.type === "number") {
+    input = `<input type="number" id="field" inputmode="numeric" min="${q.min}" max="${q.max}" value="${esc(saved || "")}">`;
+  } else if (q.type === "select") {
+    input = `<select id="field"><option value="">Bitte auswählen …</option>` +
+      q.options.map(o => `<option ${saved === o ? "selected" : ""}>${esc(o)}</option>`).join("") +
+      `</select>`;
+  } else if (q.type === "radio") {
+    input = `<div class="options">` +
+      q.options.map(o => optionHTML("radio", q.id, o, saved === o)).join("") + `</div>`;
+  } else if (q.type === "checkbox") {
+    const list = saved || [];
+    const otherText = (answers[q.id + "_anderes"] || "");
+    input = `<div class="options">` +
+      q.options.map(o => optionHTML("checkbox", q.id, o, list.includes(o))).join("") +
+      (q.other ? `<label class="option">
+          <input type="checkbox" id="other-check" ${otherText ? "checked" : ""}>
+          <span>Anderes:</span></label>` : "") +
+      `</div>` +
+      (q.other ? `<div class="extra"><input type="text" id="other-text" placeholder="Bitte angeben" value="${esc(otherText)}" aria-label="Andere Sprache"></div>` : "");
+  }
+
+  const extra = q.extra ? `<div class="extra">
+      <label for="extra-field">${esc(q.extra.label)}</label>
+      <input type="text" id="extra-field" value="${esc(answers[q.extra.id] || "")}"></div>` : "";
+
+  const isLast = current === questions.length - 1;
+
+  card.innerHTML = `
+    <p class="section">${esc(q.section)}</p>
+    <h2 class="question">${current + 1}. ${esc(q.text)}</h2>
+    ${q.hint ? `<p class="hint">${esc(q.hint)}</p>` : ""}
+    ${input}
+    ${extra}
+    <p class="error" id="error" role="alert"></p>
+    <div class="nav">
+      <button type="button" class="btn-secondary" id="back" ${current === 0 ? "disabled" : ""}>Zurück</button>
+      <button type="button" class="btn-primary" id="next">${isLast ? "Abschließen" : "Weiter"}</button>
+    </div>`;
+
+  // Fortschritt
+  const pct = (current / questions.length) * 100;
+  bar.style.width = pct + "%";
+  progress.setAttribute("aria-valuenow", Math.round(pct));
+  counter.textContent = `Frage ${current + 1} von ${questions.length}`;
+
+  document.getElementById("back").addEventListener("click", goBack);
+  document.getElementById("next").addEventListener("click", goNext);
+
+  // Enter-Taste bei Einzeilen-Feldern
+  const field = document.getElementById("field");
+  if (field && field.tagName === "INPUT") {
+    field.addEventListener("keydown", e => { if (e.key === "Enter") goNext(); });
+    field.focus();
+  }
+
+  // "Anderes" automatisch ankreuzen, sobald getippt wird
+  const ot = document.getElementById("other-text");
+  if (ot) {
+    ot.addEventListener("input", () => {
+      document.getElementById("other-check").checked = ot.value.trim() !== "";
+    });
+  }
+}
+
+// ---------- Antwort lesen + prüfen ----------
+function collect(q) {
+  if (q.type === "radio") {
+    const c = card.querySelector(`input[name="${q.id}"]:checked`);
+    return c ? c.value : "";
+  }
+  if (q.type === "checkbox") {
+    const list = [...card.querySelectorAll(`input[name="${q.id}"]:checked`)].map(i => i.value);
+    const oc = document.getElementById("other-check");
+    const ot = document.getElementById("other-text");
+    if (oc && oc.checked && ot.value.trim()) list.push("Anderes: " + ot.value.trim());
+    return list;
+  }
+  return document.getElementById("field").value.trim();
+}
+
+function validate(q, value) {
+  if (q.type === "checkbox") {
+    const oc = document.getElementById("other-check");
+    const ot = document.getElementById("other-text");
+    if (oc && oc.checked && !ot.value.trim()) return "Bitte geben Sie bei „Anderes“ eine Sprache an.";
+    return value.length ? "" : "Bitte wählen Sie mindestens eine Antwort aus.";
+  }
+  if (!value) return q.type === "radio" || q.type === "select"
+    ? "Bitte wählen Sie eine Antwort aus." : "Bitte beantworten Sie diese Frage.";
+  if (q.type === "number") {
+    const n = Number(value);
+    if (!Number.isInteger(n) || n < q.min || n > q.max)
+      return `Bitte geben Sie eine ganze Zahl zwischen ${q.min} und ${q.max} ein.`;
+  }
+  return "";
+}
+
+function save(q, value) {
+  answers[q.id] = q.type === "number" ? Number(value) : value;
+  if (q.extra) answers[q.extra.id] = document.getElementById("extra-field").value.trim();
+  if (q.other) {
+    const ot = document.getElementById("other-text");
+    answers[q.id + "_anderes"] = ot.value.trim();
+  }
+}
+
+// ---------- Navigation ----------
+function goNext() {
+  const q = questions[current];
+  const value = collect(q);
+  const err = validate(q, value);
+  if (err) { document.getElementById("error").textContent = err; return; }
+  save(q, value);
+  if (current === questions.length - 1) return showResult();
+  current++;
+  render();
+}
+
+function goBack() {
+  const q = questions[current];
+  // Eingaben beim Zurückgehen behalten (ohne Pflichtprüfung)
+  const value = collect(q);
+  if (value && value.length !== 0) save(q, value);
+  current--;
+  render();
+}
+
+// ---------- Ergebnis ----------
+function showResult() {
+  bar.style.width = "100%";
+  progress.setAttribute("aria-valuenow", 100);
+  counter.textContent = "Fertig";
+
+  const rows = questions.map((q, i) => {
+    let a = answers[q.id];
+    if (Array.isArray(a)) a = a.join(", ");
+    let extra = "";
+    if (q.extra && answers[q.extra.id]) extra = ` (${esc(answers[q.extra.id])})`;
+    return `<dt>${i + 1}. ${esc(q.text)}</dt><dd>${esc(a)}${extra}</dd>`;
+  }).join("");
+
+  card.innerHTML = `<div class="result">
+    <h2>Vielen Dank!</h2>
+    <p>Das sind Ihre Antworten zu den Fragen 1 bis ${questions.length}:</p>
+    <dl>${rows}</dl>
+    <div class="nav">
+      <button type="button" class="btn-secondary" id="edit">Antworten ändern</button>
+      <button type="button" class="btn-primary" id="download">Als Datei speichern</button>
+    </div></div>`;
+
+  document.getElementById("edit").addEventListener("click", () => { current = 0; render(); });
+  document.getElementById("download").addEventListener("click", download);
+
+  // Hier könnten die Daten an einen Server geschickt werden, z. B.:
+  // fetch("https://dein-server.de/api/umfrage", {
+  //   method: "POST",
+  //   headers: { "Content-Type": "application/json" },
+  //   body: JSON.stringify(answers)
+  // });
+  console.log("Antworten:", answers);
+}
+
+function download() {
+  const blob = new Blob([JSON.stringify(answers, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "umfrage-antworten.json";
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+render();
+</script>
 </body>
 </html>
