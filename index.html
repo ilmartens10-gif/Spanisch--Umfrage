@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Umfrage (Testversion)</title>
+<title>Umfrage</title>
 <style>
   :root {
     --bg: #eef2f5;
@@ -107,8 +107,8 @@
 </head>
 <body>
 <main>
-  <h1>Umfrage (Testversion)</h1>
-  <p class="sub">Gekürzte Version zum Testen der Statistik</p>
+  <h1>Umfrage</h1>
+  <p class="sub">Fragen zur Person, zum Sprachgebrauch und zum Spracherwerb</p>
 
   <div id="progress-wrap">
     <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100"><div id="bar"></div></div>
@@ -131,19 +131,147 @@ window.saveAnswers = a => addDoc(collection(db, "responses"), { ...a, createdAt:
 // type: text | number | radio | checkbox | select
 // extra: optionales zusätzliches Textfeld (nicht verpflichtend)
 const questions = [
-  {"section": "Fragen zur Person", "id": "alter", "type": "number", "text": "Wie alt sind Sie?", "min": 1, "max": 120},
-  {"section": "Fragen zur Person", "id": "geschlecht", "type": "radio", "text": "Kennzeichnen Sie Ihr Geschlecht:", "options": ["männlich", "weiblich", "divers"]},
-  {"section": "Fragen zur Person", "id": "region", "type": "select", "text": "Ich wohne zurzeit in:", "options": ["Andalusien", "Aragonien", "Asturien", "Balearische Inseln", "Baskenland", "Valencia", "Galicien", "Kanarische Inseln", "Kantabrien", "Kastilien-La Mancha", "Kastilien und León", "Katalonien", "Madrid", "Murcia", "Navarra", "La Rioja", "Extremadura", "Ceuta", "Melilla"]},
-  {"section": "Fragen zur Person", "id": "bleiben", "type": "radio", "text": "Haben Sie vor, in Spanien / einem spanischsprachigen Land ansässig zu werden?", "options": ["Definitiv", "Gut wahrscheinlich", "Eher nicht", "Auf gar keinen Fall", "Weiß ich noch nicht"]},
-  {"section": "Fragen zum Sprachgebrauch im Alltag", "id": "muttersprache", "type": "checkbox", "text": "Welche Sprache/n empfinden Sie als Ihre Muttersprache?", "hint": "Mehr als eine Antwort möglich.", "options": ["Russisch", "Ukrainisch", "Weißrussisch"], "other": true},
+  { section: "Fragen zur Person", id: "alter", type: "number",
+    text: "Wie alt sind Sie?", min: 1, max: 120 },
+
+  { section: "Fragen zur Person", id: "geschlecht", type: "radio",
+    text: "Kennzeichnen Sie Ihr Geschlecht:",
+    options: ["männlich", "weiblich", "divers"] },
+
+  { section: "Fragen zur Person", id: "bildung", type: "radio",
+    text: "Über welchen höchsten Bildungsgrad verfügen Sie?",
+    options: [
+      "Ich bin im Kindergarten",
+      "Ich bin in der Grundschule (Klasse unten angeben)",
+      "Ich bin in der Sekundarstufe (Klasse unten angeben)",
+      "Schule abgeschlossen",
+      "Ich besuche / habe abgeschlossen die Berufsschule (ПТУ)",
+      "Ich mache / habe abgeschlossen den Bachelor",
+      "Ich mache / habe abgeschlossen den Master"
+    ],
+    extra: { id: "bildung_praezisierung", label: "Präzisierung (z. B. Klasse):" } },
+
+  { section: "Fragen zur Person", id: "herkunft", type: "text",
+    text: "Aus welchem Land kommen Sie ursprünglich?" },
+
+  { section: "Fragen zur Person", id: "selbstbild", type: "text",
+    text: "Wie nehmen Sie sich persönlich wahr? Identifizieren Sie sich mit einem Begriff.",
+    hint: "z. B. Russe; Tatare; Ukrainer; Huzule; Katalaner; Europäer; Uraler etc." },
+
+  { section: "Fragen zur Person", id: "wohnsituation", type: "radio",
+    text: "Mit wem wohnen Sie zusammen?",
+    options: ["Allein", "Mit meinem Partner", "Mit meinem Partner und Kindern",
+              "Mit meinen Kindern", "Mit meinen Eltern", "Sonstiges"],
+    extra: { id: "partner_identifikation", label: "Falls ein Partner da ist, identifizieren Sie ihn:" } },
+
+  { section: "Fragen zur Person", id: "dauer_spanien", type: "text",
+    text: "Wie lange wohnen Sie in Spanien?" },
+
+  { section: "Fragen zur Person", id: "region", type: "select",
+    text: "Ich wohne zurzeit in:",
+    options: ["Andalusien", "Aragonien", "Asturien", "Balearische Inseln", "Baskenland",
+              "Valencia", "Galicien", "Kanarische Inseln", "Kantabrien", "Kastilien-La Mancha",
+              "Kastilien und León", "Katalonien", "Madrid", "Murcia", "Navarra", "La Rioja",
+              "Extremadura", "Ceuta", "Melilla"] },
+
+  { section: "Fragen zur Person", id: "bleiben", type: "radio",
+    text: "Haben Sie vor, in Spanien / einem spanischsprachigen Land ansässig zu werden?",
+    options: ["Definitiv", "Gut wahrscheinlich", "Eher nicht", "Auf gar keinen Fall", "Weiß ich noch nicht"] },
+
+  { section: "Fragen zum Sprachgebrauch im Alltag", id: "muttersprache", type: "checkbox",
+    text: "Welche Sprache/n empfinden Sie als Ihre Muttersprache?",
+    hint: "Mehr als eine Antwort möglich.",
+    options: ["Russisch", "Ukrainisch", "Weißrussisch"],
+    other: true },
+
+  // ----- Fragen 11 bis 54 -----
+  {"section": "Fragen zum Sprachgebrauch im Alltag", "id": "partner_sprache", "type": "checkbox", "text": "Mit meinem Partner spreche ich …", "hint": "Mehr als eine Antwort möglich.", "options": ["Russisch", "Ukrainisch", "Weißrussisch", "Trifft nicht zu"], "other": true, "exclusive": "Trifft nicht zu"},
+
+  {"section": "Fragen zum Sprachgebrauch im Alltag", "id": "kinder_sprache", "type": "checkbox", "text": "Mit meinem/n Kind/ern spreche ich …", "hint": "Mehr als eine Antwort möglich.", "options": ["Russisch", "Ukrainisch", "Weißrussisch", "Trifft nicht zu"], "other": true, "exclusive": "Trifft nicht zu"},
+
+  {"section": "Fragen zum Sprachgebrauch im Alltag", "id": "eltern_sprache", "type": "checkbox", "text": "Mit meinen Eltern spreche ich …", "hint": "Mehr als eine Antwort möglich.", "options": ["Russisch", "Ukrainisch", "Weißrussisch", "Trifft nicht zu"], "other": true, "exclusive": "Trifft nicht zu"},
+
+  {"section": "Fragen zum Sprachgebrauch im Alltag", "id": "freunde_sprache", "type": "radio", "text": "In meinem engsten Freundeskreis wird überwiegend … gesprochen.", "options": ["Russisch", "Ukrainisch", "Weißrussisch", "Kastilisch", "Englisch"], "other": true},
+
+  {"section": "Fragen zum Sprachgebrauch im Alltag", "id": "arbeit_sprache", "type": "radio", "text": "Bei der Arbeit / in der Ausbildungsstätte spreche ich überwiegend …", "options": ["Russisch", "Ukrainisch", "Weißrussisch", "Kastilisch", "Englisch"], "other": true},
+
   {"section": "Fragen zum Sprachgebrauch im Alltag", "id": "kastilisch_sprechen", "type": "radio", "text": "Sprechen Sie Kastilisch?", "options": ["Ja", "Nein"], "extra": {"id": "kastilisch_niveau", "label": "Mit dem Niveau (wenn kein offizielles Abzeichen vorhanden ist, dann geschätzt):"}},
+
   {"section": "Fragen zum Spracherwerb", "id": "fremdsprachen", "type": "textarea", "text": "Welche weiteren Fremdsprachen beherrschen Sie?", "hint": "Zählen Sie bitte auf, am besten mit dem Abzeichen. Falls keine, schreiben Sie „keine“."},
+
+  {"section": "Fragen zum Spracherwerb", "id": "kastilisch_gelernt", "type": "textarea", "text": "Wie haben Sie Kastilisch gelernt? / Wie lernen Sie Kastilisch?"},
+
+  {"section": "Fragen zum Spracherwerb", "id": "k_bildung", "type": "scale", "text": "Wie sicher sprechen Sie Kastilisch in der Bildungsstätte?", "left": "sehr sicher", "right": "sehr unsicher"},
+
   {"section": "Fragen zum Spracherwerb", "id": "k_arbeit", "type": "scale", "text": "Wie sicher sprechen Sie Kastilisch bei der Arbeit?", "left": "sehr sicher", "right": "sehr unsicher"},
+
   {"section": "Fragen zum Spracherwerb", "id": "k_einkaufen", "type": "scale", "text": "Wie sicher sprechen Sie Kastilisch beim Einkaufen?", "left": "sehr sicher", "right": "sehr unsicher"},
+
+  {"section": "Fragen zum Spracherwerb", "id": "k_cafe", "type": "scale", "text": "Wie sicher sprechen Sie Kastilisch in Cafés/Restaurants/Friseursalons/etc.?", "left": "sehr sicher", "right": "sehr unsicher"},
+
+  {"section": "Fragen zum Spracherwerb", "id": "k_freunde", "type": "scale", "text": "Wie sicher sprechen Sie Kastilisch mit kastilischsprachigen Freunden/Bekannten?", "left": "sehr sicher", "right": "sehr unsicher"},
+
+  {"section": "Fragen zum Spracherwerb", "id": "k_strasse", "type": "scale", "text": "Wie sicher sprechen Sie Kastilisch mit zufälligen Personen auf der Straße?", "left": "sehr sicher", "right": "sehr unsicher"},
+
+  {"section": "Fragen zum Spracherwerb", "id": "k_amt", "type": "scale", "text": "Wie sicher sprechen Sie Kastilisch in offiziellen Einrichtungen (z. B. Rathaus)?", "left": "sehr sicher", "right": "sehr unsicher"},
+
+  {"section": "Fragen zum Spracherwerb", "id": "k_telefon", "type": "scale", "text": "Wie sicher sprechen Sie Kastilisch am Telefon?", "left": "sehr sicher", "right": "sehr unsicher"},
+
+  {"section": "Fragen zum Spracherwerb", "id": "k_email", "type": "scale", "text": "Wie sicher schreiben Sie Kastilisch in E-Mails?", "left": "sehr sicher", "right": "sehr unsicher"},
+
   {"section": "Fragen zum Spracherwerb", "id": "k_lesen", "type": "radio", "text": "Lesen Sie eigenständig Literatur auf Kastilisch?", "options": ["ja, fast immer auf Kastilisch", "ja, ab und zu", "nur selten", "gar nicht"]},
+
+  {"section": "Fragen zum Spracherwerb", "id": "k_schriftlich", "type": "scale", "text": "Wie gut nehmen Sie Kastilisch schriftlich wahr?", "left": "sehr sicher", "right": "verstehe gar nichts"},
+
+  {"section": "Fragen zum Spracherwerb", "id": "k_filme", "type": "radio", "text": "Schauen Sie Filme/Serien auf Kastilisch an?", "options": ["ja, fast immer auf Kastilisch", "ja, ab und zu", "nur selten", "gar nicht"]},
+
+  {"section": "Fragen zum Spracherwerb", "id": "k_musik", "type": "radio", "text": "Hören Sie Musik auf Kastilisch?", "options": ["ja, fast immer auf Kastilisch", "ja, ab und zu", "nur selten", "gar nicht"]},
+
+  {"section": "Fragen zum Spracherwerb", "id": "k_podcasts", "type": "radio", "text": "Hören Sie Podcasts auf Kastilisch?", "options": ["ja, fast immer auf Kastilisch", "ja, ab und zu", "nur selten", "gar nicht"]},
+
+  {"section": "Fragen zum Spracherwerb", "id": "k_audio", "type": "scale", "text": "Wie gut nehmen Sie akustisch audio- und audiovisuelle Medien auf Kastilisch wahr?", "left": "sehr sicher", "right": "verstehe gar nichts"},
+
+  {"section": "Fragen zum Spracherwerb", "id": "k_leben", "type": "scale", "text": "Wie gut nehmen Sie akustisch kastilischsprachige Menschen im echten Leben wahr?", "left": "sehr sicher", "right": "verstehe gar nichts"},
+
+  {"section": "Fragen zum Spracherwerb", "id": "k_influencer", "type": "radio", "text": "Folgen Sie kastilischsprachigen Influencern/Kanälen in den öffentlichen Medien?", "hint": "YouTube, Instagram etc.", "options": ["Ja, vielen", "Ja, einigen", "Nein, (fast) keinen"]},
+
   {"section": "Fragen zum Spracherwerb", "id": "r_lernen", "type": "radio", "text": "Lernen Sie die Regionalsprache Ihrer Autonomie?", "options": ["Ja", "Nein", "Meine Region hat keine eigene Regionalsprache"]},
+
+  {"section": "Fragen zum Spracherwerb", "id": "r_gelernt", "type": "textarea", "text": "Wie haben Sie Ihre Regionalsprache gelernt? / Wie lernen Sie Ihre Regionalsprache?", "hideIf": {"id": "r_lernen", "value": "Meine Region hat keine eigene Regionalsprache"}},
+
+  {"section": "Fragen zum Spracherwerb", "id": "r_bildung", "type": "scale", "text": "Wie sicher sprechen Sie Ihre Regionalsprache in der Bildungsstätte?", "left": "sehr sicher", "right": "sehr unsicher", "hideIf": {"id": "r_lernen", "value": "Meine Region hat keine eigene Regionalsprache"}},
+
   {"section": "Fragen zum Spracherwerb", "id": "r_arbeit", "type": "scale", "text": "Wie sicher sprechen Sie Ihre Regionalsprache bei der Arbeit?", "left": "sehr sicher", "right": "sehr unsicher", "hideIf": {"id": "r_lernen", "value": "Meine Region hat keine eigene Regionalsprache"}},
-  {"section": "Fragen zum Spracherwerb", "id": "r_lesen", "type": "radio", "text": "Lesen Sie eigenständig Literatur in Ihrer Regionalsprache?", "options": ["ja, fast immer in meiner Regionalsprache", "ja, ab und zu", "nur selten", "gar nicht"], "hideIf": {"id": "r_lernen", "value": "Meine Region hat keine eigene Regionalsprache"}}
+
+  {"section": "Fragen zum Spracherwerb", "id": "r_einkaufen", "type": "scale", "text": "Wie sicher sprechen Sie Ihre Regionalsprache beim Einkaufen?", "left": "sehr sicher", "right": "sehr unsicher", "hideIf": {"id": "r_lernen", "value": "Meine Region hat keine eigene Regionalsprache"}},
+
+  {"section": "Fragen zum Spracherwerb", "id": "r_cafe", "type": "scale", "text": "Wie sicher sprechen Sie Ihre Regionalsprache in Cafés/Restaurants/Friseursalons/etc.?", "left": "sehr sicher", "right": "sehr unsicher", "hideIf": {"id": "r_lernen", "value": "Meine Region hat keine eigene Regionalsprache"}},
+
+  {"section": "Fragen zum Spracherwerb", "id": "r_freunde", "type": "scale", "text": "Wie sicher sprechen Sie Ihre Regionalsprache mit Freunden/Bekannten?", "left": "sehr sicher", "right": "sehr unsicher", "hideIf": {"id": "r_lernen", "value": "Meine Region hat keine eigene Regionalsprache"}},
+
+  {"section": "Fragen zum Spracherwerb", "id": "r_strasse", "type": "scale", "text": "Wie sicher sprechen Sie Ihre Regionalsprache mit zufälligen Personen auf der Straße?", "left": "sehr sicher", "right": "sehr unsicher", "hideIf": {"id": "r_lernen", "value": "Meine Region hat keine eigene Regionalsprache"}},
+
+  {"section": "Fragen zum Spracherwerb", "id": "r_amt", "type": "scale", "text": "Wie sicher sprechen Sie Ihre Regionalsprache in offiziellen Einrichtungen (z. B. Rathaus)?", "left": "sehr sicher", "right": "sehr unsicher", "hideIf": {"id": "r_lernen", "value": "Meine Region hat keine eigene Regionalsprache"}},
+
+  {"section": "Fragen zum Spracherwerb", "id": "r_telefon", "type": "scale", "text": "Wie sicher sprechen Sie Ihre Regionalsprache am Telefon?", "left": "sehr sicher", "right": "sehr unsicher", "hideIf": {"id": "r_lernen", "value": "Meine Region hat keine eigene Regionalsprache"}},
+
+  {"section": "Fragen zum Spracherwerb", "id": "r_email", "type": "scale", "text": "Wie sicher schreiben Sie in Ihrer Regionalsprache E-Mails?", "left": "sehr sicher", "right": "sehr unsicher", "hideIf": {"id": "r_lernen", "value": "Meine Region hat keine eigene Regionalsprache"}},
+
+  {"section": "Fragen zum Spracherwerb", "id": "r_lesen", "type": "radio", "text": "Lesen Sie eigenständig Literatur in Ihrer Regionalsprache?", "options": ["ja, fast immer in meiner Regionalsprache", "ja, ab und zu", "nur selten", "gar nicht"], "hideIf": {"id": "r_lernen", "value": "Meine Region hat keine eigene Regionalsprache"}},
+
+  {"section": "Fragen zum Spracherwerb", "id": "r_schriftlich", "type": "scale", "text": "Wie gut nehmen Sie Ihre Regionalsprache schriftlich wahr?", "left": "sehr sicher", "right": "verstehe gar nichts", "hideIf": {"id": "r_lernen", "value": "Meine Region hat keine eigene Regionalsprache"}},
+
+  {"section": "Fragen zum Spracherwerb", "id": "r_filme", "type": "radio", "text": "Schauen Sie Filme/Serien in Ihrer Regionalsprache an?", "options": ["ja, fast immer in meiner Regionalsprache", "ja, ab und zu", "nur selten", "gar nicht"], "hideIf": {"id": "r_lernen", "value": "Meine Region hat keine eigene Regionalsprache"}},
+
+  {"section": "Fragen zum Spracherwerb", "id": "r_musik", "type": "radio", "text": "Hören Sie Musik in Ihrer Regionalsprache?", "options": ["ja, fast immer in meiner Regionalsprache", "ja, ab und zu", "nur selten", "gar nicht"], "hideIf": {"id": "r_lernen", "value": "Meine Region hat keine eigene Regionalsprache"}},
+
+  {"section": "Fragen zum Spracherwerb", "id": "r_podcasts", "type": "radio", "text": "Hören Sie Podcasts in Ihrer Regionalsprache?", "options": ["ja, fast immer in meiner Regionalsprache", "ja, ab und zu", "nur selten", "gar nicht"], "hideIf": {"id": "r_lernen", "value": "Meine Region hat keine eigene Regionalsprache"}},
+
+  {"section": "Fragen zum Spracherwerb", "id": "r_audio", "type": "scale", "text": "Wie gut nehmen Sie akustisch audio- und audiovisuelle Medien in Ihrer Regionalsprache wahr?", "left": "sehr sicher", "right": "verstehe gar nichts", "hideIf": {"id": "r_lernen", "value": "Meine Region hat keine eigene Regionalsprache"}},
+
+  {"section": "Fragen zum Spracherwerb", "id": "r_leben", "type": "scale", "text": "Wie gut nehmen Sie akustisch Menschen in Ihrer Regionalsprache im echten Leben wahr?", "left": "sehr sicher", "right": "verstehe gar nichts", "hideIf": {"id": "r_lernen", "value": "Meine Region hat keine eigene Regionalsprache"}},
+
+  {"section": "Fragen zum Spracherwerb", "id": "r_influencer", "type": "radio", "text": "Folgen Sie Influencern/Kanälen in Ihrer Regionalsprache in den öffentlichen Medien?", "hint": "YouTube, Instagram etc.", "options": ["Ja, vielen", "Ja, einigen", "Nein, (fast) keinen"], "hideIf": {"id": "r_lernen", "value": "Meine Region hat keine eigene Regionalsprache"}}
 ];
 
 // ---------- Zustand ----------
