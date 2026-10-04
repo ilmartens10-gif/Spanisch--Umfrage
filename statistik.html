@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Umfrage – Statistik</title>
+<style>
+  :root {
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    --bg: #eef2f5; --card: #ffffff; --ink: #1c2b33; --muted: #5d6f79;
+    --line: #cfd9df; --accent: #0f6b6b; --accent-soft: #e6f2f2; --bar: #3d9a9a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121b20; --card: #1b272d; --ink: #e6eef2; --muted: #9db0ba;
+      --line: #2d3d45; --accent: #5cc0c0; --accent-soft: #223a3d; --bar: #4aa8a8;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #121b20; --card: #1b272d; --ink: #e6eef2; --muted: #9db0ba;
+    --line: #2d3d45; --accent: #5cc0c0; --accent-soft: #223a3d; --bar: #4aa8a8;
+  }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: Georgia, "Times New Roman", serif; line-height: 1.5;
+    padding: 24px 16px 48px;
+  }
+  main { max-width: 1100px; margin: 0 auto; }
+  h1 { margin: 0 0 4px; font-size: 1.7rem; }
+  .sub { margin: 0 0 20px; color: var(--muted); }
+  .ui { font-family: system-ui, sans-serif; }
+
+  .panel {
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    padding: 18px 20px; margin-bottom: 20px;
+  }
+  .panel p { margin: 0 0 12px; font-size: .95rem; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  button, .filebtn {
+    font: 600 .95rem system-ui, sans-serif; padding: 10px 16px; border-radius: 8px;
+    border: 1px solid var(--accent); background: transparent; color: var(--accent); cursor: pointer;
+  }
+  .filebtn { background: var(--accent); color: var(--card); }
+  button:hover { background: var(--accent-soft); }
+  input[type=email], input[type=password] { padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--ink); font: .95rem system-ui, sans-serif; }
+  .filebtn:has(input:focus-visible), button:focus-visible { outline: 3px solid var(--bar); outline-offset: 2px; }
+  #status { font: .9rem system-ui, sans-serif; color: var(--muted); }
+  #status.err { color: #c0392b; }
+
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 20px; }
+  .kpi { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .kpi b { display: block; font-size: 1.9rem; }
+  .kpi span { font: .85rem system-ui, sans-serif; color: var(--muted); }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; min-width: 0; }
+  .card h2 { font-size: 1.05rem; margin: 0 0 4px; }
+  .card .note { font: .8rem system-ui, sans-serif; color: var(--muted); margin: 0 0 12px; }
+  .bar-row { display: grid; grid-template-columns: minmax(80px, 38%) 1fr auto; gap: 10px; align-items: center; margin: 6px 0; font: .88rem system-ui, sans-serif; }
+  .bar-row .lbl { overflow-wrap: anywhere; }
+  .track { height: 14px; background: var(--accent-soft); border-radius: 4px; overflow: hidden; }
+  .fill { height: 100%; background: var(--bar); border-radius: 4px; }
+  .val { color: var(--muted); white-space: nowrap; }
+  .empty { color: var(--muted); font: .9rem system-ui, sans-serif; }
+  footer { margin-top: 24px; font: .8rem system-ui, sans-serif; color: var(--muted); }
+  :root { --c0: #0f6b6b; --c1: #4aa8a8; --c2: #a9d3d3; --c3: #c9d3d8; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --c0: #5cc0c0; --c1: #3d9a9a; --c2: #2c6b6b; --c3: #46565e; } }
+  :root[data-theme="dark"] { --c0: #5cc0c0; --c1: #3d9a9a; --c2: #2c6b6b; --c3: #46565e; }
+  .sec { grid-column: 1 / -1; margin: 18px 0 0; font-size: 1.3rem; }
+  .stack { display: flex; }
+  .stack span { height: 100%; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0 0 12px; font: .8rem system-ui, sans-serif; color: var(--muted); }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; }
+  details { font: .9rem system-ui, sans-serif; }
+  summary { cursor: pointer; color: var(--accent); }
+  details ul { margin: 10px 0 0; padding-left: 18px; max-height: 280px; overflow: auto; }
+  details li { margin: 4px 0; overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Umfrage – Statistik</h1>
+  <p class="sub">Live-Auswertung aller 54 Fragen</p>
+
+  <section class="panel" id="login">
+    <p class="ui">Bitte melde dich an, um die Live-Auswertung zu sehen.</p>
+    <div class="row">
+      <input type="email" id="email" placeholder="E-Mail" autocomplete="username" aria-label="E-Mail">
+      <input type="password" id="pw" placeholder="Passwort" autocomplete="current-password" aria-label="Passwort">
+      <button type="button" id="loginBtn">Anmelden</button>
+      <span id="status" role="status"></span>
+    </div>
+  </section>
+  <section class="panel" id="live" hidden>
+    <div class="row">
+      <span id="count" class="ui">Verbinde …</span>
+      <button type="button" id="logout">Abmelden</button>
+    </div>
+  </section>
+
+  <div class="kpis" id="kpis"></div>
+  <div class="grid" id="grid"></div>
+  <footer>Neue Antworten erscheinen automatisch. Bei Fragen, die übersprungen werden konnten, beziehen sich die Prozentwerte nur auf die Personen, die sie beantwortet haben. Offene Textantworten werden ohne Beachtung von Groß-/Kleinschreibung zusammengefasst.</footer>
+</main>
+
+<script>
+// ---------- Konstanten ----------
+const FREQ = ["ja, fast immer auf Kastilisch", "ja, ab und zu", "nur selten", "gar nicht"];
+const RFREQ = ["ja, fast immer in meiner Regionalsprache", "ja, ab und zu", "nur selten", "gar nicht"];
+const FOLLOW = ["Ja, vielen", "Ja, einigen", "Nein, (fast) keinen"];
+const orderBleiben = ["Definitiv", "Gut wahrscheinlich", "Eher nicht", "Auf gar keinen Fall", "Weiß ich noch nicht"];
+const ageBins = [["unter 18", 0, 17], ["18–24", 18, 24], ["25–34", 25, 34], ["35–44", 35, 44], ["45–54", 45, 54], ["55+", 55, 200]];
+const MULTI = "Mehrfachnennungen möglich, Prozent beziehen sich auf die Befragten.";
+const SCALE_SPEAK = "Mittelwert auf einer Skala von 1 bis 6 (6 = sehr sicher).";
+const SCALE_UNDERSTAND = "Mittelwert auf einer Skala von 1 bis 6 (6 = versteht alles).";
+
+const speakRows = p => [[p + "bildung", "Bildungsstätte"], [p + "arbeit", "Arbeit"], [p + "einkaufen", "Einkaufen"],
+  [p + "cafe", "Café / Restaurant / Friseur"], [p + "freunde", "Freunde / Bekannte"], [p + "strasse", "Zufällige Personen"],
+  [p + "amt", "Offizielle Einrichtungen"], [p + "telefon", "Telefon"], [p + "email", "E-Mails schreiben"]];
+const understandRows = p => [[p + "schriftlich", "Geschriebenes verstehen"], [p + "audio", "Medien verstehen (hören)"], [p + "leben", "Menschen im Alltag verstehen"]];
+const mediaRows = p => [[p + "lesen", "Literatur lesen"], [p + "filme", "Filme / Serien"], [p + "musik", "Musik"], [p + "podcasts", "Podcasts"]];
+const langs = id => d => (d[id] || []).map(s => s.startsWith("Anderes:") ? "Anderes" : s);
+
+const SECTIONS = [
+  { title: "Zur Person", items: [
+    { kind: "age" },
+    { title: "Geschlecht (Frage 2)", get: d => [d.geschlecht] },
+    { title: "Höchster Bildungsgrad (Frage 3)", get: d => [d.bildung] },
+    { title: "Herkunftsland (Frage 4)", get: d => [d.herkunft], free: true, top: 10 },
+    { title: "Selbstwahrnehmung (Frage 5)", get: d => [d.selbstbild], free: true, top: 10 },
+    { title: "Wohnsituation (Frage 6)", get: d => [d.wohnsituation] },
+    { title: "Dauer in Spanien (Frage 7, Freitext)", get: d => [d.dauer_spanien], free: true, top: 10 },
+    { title: "Wohnort / Autonome Gemeinschaft (Frage 8)", get: d => [d.region], top: 19 },
+    { title: "Bleibeabsicht (Frage 9)", get: d => [d.bleiben], order: orderBleiben }
+  ]},
+  { title: "Sprachgebrauch im Alltag", items: [
+    { title: "Muttersprache(n) (Frage 10)", get: langs("muttersprache"), note: MULTI },
+    { title: "Sprache mit dem Partner (Frage 11)", get: langs("partner_sprache"), note: MULTI },
+    { title: "Sprache mit den Kindern (Frage 12)", get: langs("kinder_sprache"), note: MULTI },
+    { title: "Sprache mit den Eltern (Frage 13)", get: langs("eltern_sprache"), note: MULTI },
+    { title: "Sprache im engsten Freundeskreis (Frage 14)", get: d => [d.freunde_sprache] },
+    { title: "Sprache bei Arbeit / Ausbildung (Frage 15)", get: d => [d.arbeit_sprache] },
+    { title: "Sprechen Kastilisch? (Frage 16)", get: d => [d.kastilisch_sprechen] },
+    { title: "Niveau Kastilisch (Frage 16, Freitext)", get: d => [d.kastilisch_niveau], free: true, top: 10 }
+  ]},
+  { title: "Spracherwerb: Kastilisch", items: [
+    { kind: "mean", title: "Sicherheit beim Sprechen (Fragen 19–27)", rows: speakRows("k_"), note: SCALE_SPEAK },
+    { kind: "mean", title: "Verstehen (Fragen 29, 33, 34)", rows: understandRows("k_"), note: SCALE_UNDERSTAND },
+    { kind: "stack", title: "Literatur und Medien (Fragen 28, 30–32)", rows: mediaRows("k_"), options: FREQ },
+    { title: "Influencer / Kanäle (Frage 35)", get: d => [d.k_influencer], order: FOLLOW },
+    { kind: "text", title: "Weitere Fremdsprachen (Frage 17)", id: "fremdsprachen" },
+    { kind: "text", title: "Wie Kastilisch gelernt wurde (Frage 18)", id: "kastilisch_gelernt" }
+  ]},
+  { title: "Spracherwerb: Regionalsprache", items: [
+    { title: "Lernen Sie die Regionalsprache? (Frage 36)", get: d => [d.r_lernen] },
+    { kind: "mean", title: "Sicherheit beim Sprechen (Fragen 38–46)", rows: speakRows("r_"), note: SCALE_SPEAK },
+    { kind: "mean", title: "Verstehen (Fragen 48, 52, 53)", rows: understandRows("r_"), note: SCALE_UNDERSTAND },
+    { kind: "stack", title: "Literatur und Medien (Fragen 47, 49–51)", rows: mediaRows("r_"), options: RFREQ },
+    { title: "Influencer / Kanäle (Frage 54)", get: d => [d.r_influencer], order: FOLLOW },
+    { kind: "text", title: "Wie die Regionalsprache gelernt wurde (Frage 37)", id: "r_gelernt" }
+  ]}
+];
+
+// ---------- Hilfsfunktionen ----------
+let data = [];
+const $ = id => document.getElementById(id);
+const num = v => typeof v === "number" && isFinite(v);
+const fmt = x => x.toLocaleString("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const filled = v => v !== undefined && v !== null && String(v).trim() !== "";
+const meanOf = arr => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
+
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+
+function tally(values, free) {
+  const map = new Map();
+  values.filter(filled).forEach(v => {
+    const label = String(v).trim();
+    const key = free ? label.toLowerCase() : label;
+    const e = map.get(key) || { label, n: 0 };
+    e.n++;
+    map.set(key, e);
+  });
+  return [...map.values()];
+}
+
+function median(a) {
+  const s = [...a].sort((x, y) => x - y), m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+
+function newCard(title, note) {
+  const c = el("section", "card");
+  c.append(el("h2", "", title));
+  if (note) c.append(el("p", "note", note));
+  return c;
+}
+
+// ---------- Kartentypen ----------
+function barCard(title, entries, base, note) {
+  const card = newCard(title, note);
+  if (!entries.length) { card.append(el("p", "empty", "Noch keine Antworten.")); return card; }
+  const max = Math.max(...entries.map(e => e.n));
+  entries.forEach(e => {
+    const row = el("div", "bar-row");
+    row.append(el("span", "lbl", e.label));
+    const track = el("div", "track"), fill = el("div", "fill");
+    fill.style.width = (e.n / max * 100) + "%";
+    track.append(fill);
+    row.append(track, el("span", "val", `${e.n} (${Math.round(e.n / base * 100)} %)`));
+    card.append(row);
+  });
+  return card;
+}
+
+function meanCard(it) {
+  const card = newCard(it.title, it.note);
+  it.rows.forEach(([id, label]) => {
+    const v = data.map(d => d[id]).filter(num), m = meanOf(v);
+    const row = el("div", "bar-row");
+    row.append(el("span", "lbl", label));
+    const track = el("div", "track"), fill = el("div", "fill");
+    fill.style.width = m === null ? "0" : (m / 6 * 100) + "%";
+    track.append(fill);
+    row.append(track, el("span", "val", m === null ? "–" : `Ø ${fmt(m)} (n=${v.length})`));
+    card.append(row);
+  });
+  return card;
+}
+
+function stackCard(it) {
+  const card = newCard(it.title, "Anteil der Antworten je Frage.");
+  const legend = el("div", "legend");
+  it.options.forEach((o, i) => {
+    const s = el("span"), sw = el("i");
+    sw.style.background = `var(--c${i})`;
+    s.append(sw, document.createTextNode(o));
+    legend.append(s);
+  });
+  card.append(legend);
+  it.rows.forEach(([id, label]) => {
+    const vals = data.map(d => d[id]).filter(filled);
+    const row = el("div", "bar-row");
+    row.append(el("span", "lbl", label));
+    const track = el("div", "track stack");
+    it.options.forEach((o, i) => {
+      const n = vals.filter(v => v === o).length;
+      if (!n) return;
+      const seg = el("span");
+      seg.style.width = (n / vals.length * 100) + "%";
+      seg.style.background = `var(--c${i})`;
+      seg.title = `${o}: ${n} (${Math.round(n / vals.length * 100)} %)`;
+      track.append(seg);
+    });
+    row.append(track, el("span", "val", `n=${vals.length}`));
+    card.append(row);
+  });
+  return card;
+}
+
+function textCard(it) {
+  const card = newCard(it.title);
+  const vals = data.map(d => d[it.id]).filter(filled);
+  if (!vals.length) { card.append(el("p", "empty", "Noch keine Antworten.")); return card; }
+  const det = el("details"), sum = el("summary", "", `${vals.length} Antworten anzeigen`), ul = el("ul");
+  vals.forEach(v => ul.append(el("li", "", String(v))));
+  det.append(sum, ul);
+  card.append(det);
+  return card;
+}
+
+function buildCard(it) {
+  if (it.kind === "age") {
+    const ages = data.map(d => d.alter).filter(num);
+    return barCard("Altersverteilung (Frage 1)",
+      ageBins.map(([label, lo, hi]) => ({ label, n: ages.filter(a => a >= lo && a <= hi).length })), ages.length || 1);
+  }
+  if (it.kind === "mean") return meanCard(it);
+  if (it.kind === "stack") return stackCard(it);
+  if (it.kind === "text") return textCard(it);
+  let entries = tally(data.flatMap(it.get), it.free);
+  const base = data.filter(d => it.get(d).some(filled)).length || 1;
+  if (it.order) entries.sort((a, b) => it.order.indexOf(a.label) - it.order.indexOf(b.label));
+  else entries.sort((a, b) => b.n - a.n || a.label.localeCompare(b.label, "de"));
+  if (it.top) entries = entries.slice(0, it.top);
+  return barCard(it.title, entries, base, (it.note ? it.note + " " : "") + `${base} Antworten.`);
+}
+
+// ---------- Rendern ----------
+function render() {
+  const n = data.length;
+  const kpis = $("kpis"), grid = $("grid");
+  kpis.replaceChildren(); grid.replaceChildren();
+  if (!n) { grid.append(el("p", "empty", "Noch keine Daten vorhanden.")); return; }
+
+  const ages = data.map(d => d.alter).filter(num);
+  const stay = data.filter(d => d.bleiben === "Definitiv" || d.bleiben === "Gut wahrscheinlich").length;
+  const avgOf = rows => meanOf(data.flatMap(d => rows.map(([id]) => d[id])).filter(num));
+  const k = avgOf(speakRows("k_")), r = avgOf(speakRows("r_"));
+
+  [[n, "Antworten"],
+   [ages.length ? fmt(meanOf(ages)) : "–", "Durchschnittsalter"],
+   [ages.length ? median(ages) : "–", "Median Alter"],
+   [Math.round(stay / n * 100) + " %", "wollen in Spanien bleiben (definitiv / wahrscheinlich)"],
+   [k === null ? "–" : fmt(k), "Ø Sprechsicherheit Kastilisch (1–6)"],
+   [r === null ? "–" : fmt(r), "Ø Sprechsicherheit Regionalsprache (1–6)"]
+  ].forEach(([v, l]) => { const e = el("div", "kpi"); e.append(el("b", "", v), el("span", "", l)); kpis.append(e); });
+
+  SECTIONS.forEach(sec => {
+    grid.append(el("h2", "sec", sec.title));
+    sec.items.forEach(it => grid.append(buildCard(it)));
+  });
+}
+
+window.setData = arr => { data = arr; render(); };
+render();
+</script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { firebaseConfig } from "./firebase-config.js";
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app), db = getFirestore(app);
+const byId = id => document.getElementById(id);
+let unsub = null;
+
+onAuthStateChanged(auth, user => {
+  byId("login").hidden = !!user;
+  byId("live").hidden = !user;
+  if (unsub) { unsub(); unsub = null; }
+  if (!user) { window.setData([]); return; }
+  unsub = onSnapshot(collection(db, "responses"), snap => {
+    window.setData(snap.docs.map(d => d.data()));
+    byId("count").textContent = snap.size + " Antworten (live)";
+  }, () => {
+    byId("count").textContent = "Kein Zugriff. Prüfe die Regeln und die E-Mail-Adresse.";
+  });
+});
+
+async function login() {
+  const st = byId("status");
+  st.textContent = "";
+  try { await signInWithEmailAndPassword(auth, byId("email").value.trim(), byId("pw").value); byId("pw").value = ""; }
+  catch (e) { st.className = "err"; st.textContent = "Anmeldung fehlgeschlagen."; }
+}
+byId("loginBtn").addEventListener("click", login);
+byId("pw").addEventListener("keydown", e => { if (e.key === "Enter") login(); });
+byId("logout").addEventListener("click", () => signOut(auth));
+</script>
+</body>
+</html>
