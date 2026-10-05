@@ -103,12 +103,25 @@
   .pt:hover { border-color: var(--accent); }
   .pt:has(input:checked) { border-color: var(--accent); background: #e6f2f2; }
   .pt input { accent-color: var(--accent); width: 20px; height: 20px; margin: 0; }
+
+  .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .top select { width: auto; padding: 8px 10px; font: .9rem system-ui, sans-serif; }
+  .sr { position: absolute; left: -9999px; }
+  .sl { display: flex; align-items: center; gap: 14px; margin-top: 4px; }
+  .sl input[type=range] { flex: 1; height: 32px; margin: 0; accent-color: var(--accent); }
+  .sl input.untouched { accent-color: #9aa8b0; }
+  .sl output { min-width: 3ch; text-align: right; font: 600 1.4rem system-ui, sans-serif; }
 </style>
 </head>
 <body>
 <main>
-  <h1>Umfrage</h1>
-  <p class="sub">Fragen zur Person, zum Sprachgebrauch und zum Spracherwerb</p>
+  <div class="top">
+    <div>
+      <h1 id="h1">Umfrage</h1>
+      <p class="sub" id="sub"></p>
+    </div>
+    <label><span class="sr" id="lang-lbl">Sprache</span><select id="lang"></select></label>
+  </div>
 
   <div id="progress-wrap">
     <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100"><div id="bar"></div></div>
@@ -126,170 +139,148 @@ import { firebaseConfig } from "./firebase-config.js";
 const db = getFirestore(initializeApp(firebaseConfig));
 window.saveAnswers = a => addDoc(collection(db, "responses"), { ...a, createdAt: serverTimestamp() });
 </script>
+<script src="i18n-en.js"></script>
+<script src="i18n-es.js"></script>
+<script src="i18n-ru.js"></script>
+<script src="i18n-uk.js"></script>
+<script src="i18n-kk.js"></script>
 <script>
-// ---------- Fragen ----------
-// type: text | number | radio | checkbox | select
-// extra: optionales zusätzliches Textfeld (nicht verpflichtend)
+const SEC_DE = ["Fragen zur Person", "Fragen zum Sprachgebrauch im Alltag", "Fragen zum Spracherwerb"];
+const SPEAK = ["bildung", "arbeit", "einkaufen", "cafe", "freunde", "strasse", "amt", "telefon"];
+const UI_LANGS = [["de", "Deutsch"], ["en", "English"], ["es", "Español"], ["ru", "Русский"], ["uk", "Українська"], ["kk", "Қазақша"]];
+
+const UI_DE = {
+  title: "Umfrage", sub: "Fragen zur Person, zum Sprachgebrauch und zum Spracherwerb", lang: "Sprache",
+  counter: "Frage {n} von {m}", back: "Zurück", next: "Weiter", finish: "Abschließen",
+  choose: "Bitte auswählen …", other: "Anderes", otherPh: "Bitte angeben",
+  errAnswer: "Bitte beantworten Sie diese Frage.", errPick: "Bitte wählen Sie eine Antwort aus.",
+  errPickMulti: "Bitte wählen Sie mindestens eine Antwort aus.",
+  errNum: "Bitte geben Sie eine ganze Zahl zwischen {a} und {b} ein.",
+  errOther: "Bitte geben Sie bei „Anderes“ eine Antwort an.",
+  errExcl: "„{x}“ kann nicht mit anderen Antworten kombiniert werden.",
+  errSlider: "Bitte stellen Sie den Regler ein, um zu antworten.",
+  lowSpeak: "sehr unsicher", lowUnder: "verstehe gar nichts", high: "sehr sicher", unset: "–",
+  sending: "Ihre Antworten werden gesendet …",
+  sent: "Ihre Antworten wurden gespeichert. Vielen Dank für Ihre Teilnahme!",
+  failed: "Das Senden hat nicht geklappt. Bitte speichern Sie eine Kopie als Datei und schicken Sie sie uns.",
+  download: "Kopie als Datei speichern", thanks: "Vielen Dank!", summary: "Das sind Ihre Antworten:"
+};
+const TR = window.I18N = window.I18N || {};
+TR.de = { ui: UI_DE };
+
+// Antworten werden immer in der deutschen Grundform gespeichert (damit die Statistik sprachübergreifend zählt).
+// hideIf: Frage entfällt, wenn EINE Bedingung zutrifft. showIf: Frage erscheint nur, wenn ALLE zutreffen.
 const questions = [
-  { section: "Fragen zur Person", id: "alter", type: "number",
-    text: "Wie alt sind Sie?", min: 1, max: 120 },
-
-  { section: "Fragen zur Person", id: "geschlecht", type: "radio",
-    text: "Kennzeichnen Sie Ihr Geschlecht:",
-    options: ["männlich", "weiblich", "divers"] },
-
-  { section: "Fragen zur Person", id: "bildung", type: "radio",
-    text: "Über welchen höchsten Bildungsgrad verfügen Sie?",
-    options: [
-      "Ich bin im Kindergarten",
-      "Ich bin in der Grundschule (Klasse unten angeben)",
-      "Ich bin in der Sekundarstufe (Klasse unten angeben)",
-      "Schule abgeschlossen",
-      "Ich besuche / habe abgeschlossen die Berufsschule (ПТУ)",
-      "Ich mache / habe abgeschlossen den Bachelor",
-      "Ich mache / habe abgeschlossen den Master"
-    ],
-    extra: { id: "bildung_praezisierung", label: "Präzisierung (z. B. Klasse):" } },
-
-  { section: "Fragen zur Person", id: "herkunft", type: "text",
-    text: "Aus welchem Land kommen Sie ursprünglich?" },
-
-  { section: "Fragen zur Person", id: "selbstbild", type: "text",
-    text: "Wie nehmen Sie sich persönlich wahr? Identifizieren Sie sich mit einem Begriff.",
-    hint: "z. B. Russe; Tatare; Ukrainer; Huzule; Katalaner; Europäer; Uraler etc." },
-
-  { section: "Fragen zur Person", id: "wohnsituation", type: "radio",
-    text: "Mit wem wohnen Sie zusammen?",
-    options: ["Allein", "Mit meinem Partner", "Mit meinem Partner und Kindern",
-              "Mit meinen Kindern", "Mit meinen Eltern", "Sonstiges"],
-    extra: { id: "partner_identifikation", label: "Falls ein Partner da ist, identifizieren Sie ihn:" } },
-
-  { section: "Fragen zur Person", id: "dauer_spanien", type: "text",
-    text: "Wie lange wohnen Sie in Spanien?" },
-
-  { section: "Fragen zur Person", id: "region", type: "select",
-    text: "Ich wohne zurzeit in:",
-    options: ["Andalusien", "Aragonien", "Asturien", "Balearische Inseln", "Baskenland",
-              "Valencia", "Galicien", "Kanarische Inseln", "Kantabrien", "Kastilien-La Mancha",
-              "Kastilien und León", "Katalonien", "Madrid", "Murcia", "Navarra", "La Rioja",
-              "Extremadura", "Ceuta", "Melilla"] },
-
-  { section: "Fragen zur Person", id: "bleiben", type: "radio",
-    text: "Haben Sie vor, in Spanien / einem spanischsprachigen Land ansässig zu werden?",
-    options: ["Definitiv", "Gut wahrscheinlich", "Eher nicht", "Auf gar keinen Fall", "Weiß ich noch nicht"] },
-
-  { section: "Fragen zum Sprachgebrauch im Alltag", id: "muttersprache", type: "checkbox",
-    text: "Welche Sprache/n empfinden Sie als Ihre Muttersprache?",
-    hint: "Mehr als eine Antwort möglich.",
-    options: ["Russisch", "Ukrainisch", "Weißrussisch"],
-    other: true },
-
-  // ----- Fragen 11 bis 54 -----
-  {"section": "Fragen zum Sprachgebrauch im Alltag", "id": "partner_sprache", "type": "checkbox", "text": "Mit meinem Partner spreche ich …", "hint": "Mehr als eine Antwort möglich.", "options": ["Russisch", "Ukrainisch", "Weißrussisch", "Trifft nicht zu"], "other": true, "exclusive": "Trifft nicht zu"},
-
-  {"section": "Fragen zum Sprachgebrauch im Alltag", "id": "kinder_sprache", "type": "checkbox", "text": "Mit meinem/n Kind/ern spreche ich …", "hint": "Mehr als eine Antwort möglich.", "options": ["Russisch", "Ukrainisch", "Weißrussisch", "Trifft nicht zu"], "other": true, "exclusive": "Trifft nicht zu"},
-
+  {"section": "Fragen zur Person", "id": "alter", "type": "number", "text": "Wie alt sind Sie?", "min": 1, "max": 120},
+  {"section": "Fragen zur Person", "id": "geschlecht", "type": "radio", "text": "Kennzeichnen Sie Ihr Geschlecht:", "options": ["männlich", "weiblich", "divers"]},
+  {"section": "Fragen zur Person", "id": "bildung", "type": "radio", "text": "Über welchen höchsten Bildungsgrad verfügen Sie?", "options": ["Ich bin im Kindergarten", "Ich bin in der Grundschule (Klasse unten angeben)", "Ich bin in der Sekundarstufe (Klasse unten angeben)", "Schule abgeschlossen", "Ich besuche / habe abgeschlossen die Berufsschule (ПТУ)", "Ich mache / habe abgeschlossen den Bachelor", "Ich mache / habe abgeschlossen den Master"], "extra": {"id": "bildung_praezisierung", "label": "Präzisierung (z. B. Klasse):"}},
+  {"section": "Fragen zur Person", "id": "herkunft", "type": "text", "text": "Aus welchem Land kommen Sie ursprünglich?"},
+  {"section": "Fragen zur Person", "id": "selbstbild", "type": "text", "text": "Wie nehmen Sie sich persönlich wahr? Identifizieren Sie sich mit einem Begriff.", "hint": "z. B. Russe; Tatare; Ukrainer; Huzule; Katalaner; Europäer; Uraler etc."},
+  {"section": "Fragen zur Person", "id": "wohnsituation", "type": "radio", "text": "Mit wem wohnen Sie zusammen?", "options": ["Allein", "Mit meinem Partner", "Mit meinem Partner und Kindern", "Mit meinen Kindern", "Mit meinen Eltern", "Sonstiges"], "extra": {"id": "partner_identifikation", "label": "Falls ein Partner da ist, identifizieren Sie ihn:"}},
+  {"section": "Fragen zur Person", "id": "dauer_spanien", "type": "text", "text": "Wie lange wohnen Sie in Spanien?"},
+  {"section": "Fragen zur Person", "id": "region", "type": "select", "text": "Ich wohne zurzeit in:", "options": ["Andalusien", "Aragonien", "Asturien", "Balearische Inseln", "Baskenland", "Valencia", "Galicien", "Kanarische Inseln", "Kantabrien", "Kastilien-La Mancha", "Kastilien und León", "Katalonien", "Madrid", "Murcia", "Navarra", "La Rioja", "Extremadura", "Ceuta", "Melilla"]},
+  {"section": "Fragen zur Person", "id": "bleiben", "type": "radio", "text": "Haben Sie vor, in Spanien / einem spanischsprachigen Land ansässig zu werden?", "options": ["Definitiv", "Gut wahrscheinlich", "Eher nicht", "Auf gar keinen Fall", "Weiß ich noch nicht"]},
+  {"section": "Fragen zum Sprachgebrauch im Alltag", "id": "muttersprache", "type": "checkbox", "text": "Welche Sprache/n empfinden Sie als Ihre Muttersprache?", "hint": "Mehr als eine Antwort möglich.", "options": ["Russisch", "Ukrainisch", "Weißrussisch"], "other": true},
+  {"section": "Fragen zum Sprachgebrauch im Alltag", "id": "partner_sprache", "type": "checkbox", "text": "Mit meinem Partner spreche ich …", "hint": "Mehr als eine Antwort möglich.", "options": ["Russisch", "Ukrainisch", "Weißrussisch", "Trifft nicht zu"], "other": true, "exclusive": "Trifft nicht zu", "showIf": [{"id": "wohnsituation", "in": ["Mit meinem Partner", "Mit meinem Partner und Kindern", "Sonstiges"]}]},
+  {"section": "Fragen zum Sprachgebrauch im Alltag", "id": "kinder_sprache", "type": "checkbox", "text": "Mit meinem/n Kind/ern spreche ich …", "hint": "Mehr als eine Antwort möglich.", "options": ["Russisch", "Ukrainisch", "Weißrussisch", "Trifft nicht zu"], "other": true, "exclusive": "Trifft nicht zu", "showIf": [{"id": "wohnsituation", "in": ["Mit meinem Partner und Kindern", "Mit meinen Kindern", "Sonstiges"]}]},
   {"section": "Fragen zum Sprachgebrauch im Alltag", "id": "eltern_sprache", "type": "checkbox", "text": "Mit meinen Eltern spreche ich …", "hint": "Mehr als eine Antwort möglich.", "options": ["Russisch", "Ukrainisch", "Weißrussisch", "Trifft nicht zu"], "other": true, "exclusive": "Trifft nicht zu"},
-
   {"section": "Fragen zum Sprachgebrauch im Alltag", "id": "freunde_sprache", "type": "radio", "text": "In meinem engsten Freundeskreis wird überwiegend … gesprochen.", "options": ["Russisch", "Ukrainisch", "Weißrussisch", "Kastilisch", "Englisch"], "other": true},
-
   {"section": "Fragen zum Sprachgebrauch im Alltag", "id": "arbeit_sprache", "type": "radio", "text": "Bei der Arbeit / in der Ausbildungsstätte spreche ich überwiegend …", "options": ["Russisch", "Ukrainisch", "Weißrussisch", "Kastilisch", "Englisch"], "other": true},
-
   {"section": "Fragen zum Sprachgebrauch im Alltag", "id": "kastilisch_sprechen", "type": "radio", "text": "Sprechen Sie Kastilisch?", "options": ["Ja", "Nein"], "extra": {"id": "kastilisch_niveau", "label": "Mit dem Niveau (wenn kein offizielles Abzeichen vorhanden ist, dann geschätzt):"}},
-
   {"section": "Fragen zum Spracherwerb", "id": "fremdsprachen", "type": "textarea", "text": "Welche weiteren Fremdsprachen beherrschen Sie?", "hint": "Zählen Sie bitte auf, am besten mit dem Abzeichen. Falls keine, schreiben Sie „keine“."},
-
   {"section": "Fragen zum Spracherwerb", "id": "kastilisch_gelernt", "type": "textarea", "text": "Wie haben Sie Kastilisch gelernt? / Wie lernen Sie Kastilisch?"},
-
   {"section": "Fragen zum Spracherwerb", "id": "k_bildung", "type": "scale", "text": "Wie sicher sprechen Sie Kastilisch in der Bildungsstätte?", "left": "sehr sicher", "right": "sehr unsicher"},
-
   {"section": "Fragen zum Spracherwerb", "id": "k_arbeit", "type": "scale", "text": "Wie sicher sprechen Sie Kastilisch bei der Arbeit?", "left": "sehr sicher", "right": "sehr unsicher"},
-
   {"section": "Fragen zum Spracherwerb", "id": "k_einkaufen", "type": "scale", "text": "Wie sicher sprechen Sie Kastilisch beim Einkaufen?", "left": "sehr sicher", "right": "sehr unsicher"},
-
   {"section": "Fragen zum Spracherwerb", "id": "k_cafe", "type": "scale", "text": "Wie sicher sprechen Sie Kastilisch in Cafés/Restaurants/Friseursalons/etc.?", "left": "sehr sicher", "right": "sehr unsicher"},
-
   {"section": "Fragen zum Spracherwerb", "id": "k_freunde", "type": "scale", "text": "Wie sicher sprechen Sie Kastilisch mit kastilischsprachigen Freunden/Bekannten?", "left": "sehr sicher", "right": "sehr unsicher"},
-
   {"section": "Fragen zum Spracherwerb", "id": "k_strasse", "type": "scale", "text": "Wie sicher sprechen Sie Kastilisch mit zufälligen Personen auf der Straße?", "left": "sehr sicher", "right": "sehr unsicher"},
-
   {"section": "Fragen zum Spracherwerb", "id": "k_amt", "type": "scale", "text": "Wie sicher sprechen Sie Kastilisch in offiziellen Einrichtungen (z. B. Rathaus)?", "left": "sehr sicher", "right": "sehr unsicher"},
-
   {"section": "Fragen zum Spracherwerb", "id": "k_telefon", "type": "scale", "text": "Wie sicher sprechen Sie Kastilisch am Telefon?", "left": "sehr sicher", "right": "sehr unsicher"},
-
   {"section": "Fragen zum Spracherwerb", "id": "k_email", "type": "scale", "text": "Wie sicher schreiben Sie Kastilisch in E-Mails?", "left": "sehr sicher", "right": "sehr unsicher"},
-
   {"section": "Fragen zum Spracherwerb", "id": "k_lesen", "type": "radio", "text": "Lesen Sie eigenständig Literatur auf Kastilisch?", "options": ["ja, fast immer auf Kastilisch", "ja, ab und zu", "nur selten", "gar nicht"]},
-
   {"section": "Fragen zum Spracherwerb", "id": "k_schriftlich", "type": "scale", "text": "Wie gut nehmen Sie Kastilisch schriftlich wahr?", "left": "sehr sicher", "right": "verstehe gar nichts"},
-
   {"section": "Fragen zum Spracherwerb", "id": "k_filme", "type": "radio", "text": "Schauen Sie Filme/Serien auf Kastilisch an?", "options": ["ja, fast immer auf Kastilisch", "ja, ab und zu", "nur selten", "gar nicht"]},
-
   {"section": "Fragen zum Spracherwerb", "id": "k_musik", "type": "radio", "text": "Hören Sie Musik auf Kastilisch?", "options": ["ja, fast immer auf Kastilisch", "ja, ab und zu", "nur selten", "gar nicht"]},
-
   {"section": "Fragen zum Spracherwerb", "id": "k_podcasts", "type": "radio", "text": "Hören Sie Podcasts auf Kastilisch?", "options": ["ja, fast immer auf Kastilisch", "ja, ab und zu", "nur selten", "gar nicht"]},
-
   {"section": "Fragen zum Spracherwerb", "id": "k_audio", "type": "scale", "text": "Wie gut nehmen Sie akustisch audio- und audiovisuelle Medien auf Kastilisch wahr?", "left": "sehr sicher", "right": "verstehe gar nichts"},
-
   {"section": "Fragen zum Spracherwerb", "id": "k_leben", "type": "scale", "text": "Wie gut nehmen Sie akustisch kastilischsprachige Menschen im echten Leben wahr?", "left": "sehr sicher", "right": "verstehe gar nichts"},
-
   {"section": "Fragen zum Spracherwerb", "id": "k_influencer", "type": "radio", "text": "Folgen Sie kastilischsprachigen Influencern/Kanälen in den öffentlichen Medien?", "hint": "YouTube, Instagram etc.", "options": ["Ja, vielen", "Ja, einigen", "Nein, (fast) keinen"]},
-
-  {"section": "Fragen zum Spracherwerb", "id": "r_lernen", "type": "radio", "text": "Lernen Sie die Regionalsprache Ihrer Autonomie?", "options": ["Ja", "Nein", "Meine Region hat keine eigene Regionalsprache"]},
-
-  {"section": "Fragen zum Spracherwerb", "id": "r_gelernt", "type": "textarea", "text": "Wie haben Sie Ihre Regionalsprache gelernt? / Wie lernen Sie Ihre Regionalsprache?", "hideIf": {"id": "r_lernen", "value": "Meine Region hat keine eigene Regionalsprache"}},
-
-  {"section": "Fragen zum Spracherwerb", "id": "r_bildung", "type": "scale", "text": "Wie sicher sprechen Sie Ihre Regionalsprache in der Bildungsstätte?", "left": "sehr sicher", "right": "sehr unsicher", "hideIf": {"id": "r_lernen", "value": "Meine Region hat keine eigene Regionalsprache"}},
-
-  {"section": "Fragen zum Spracherwerb", "id": "r_arbeit", "type": "scale", "text": "Wie sicher sprechen Sie Ihre Regionalsprache bei der Arbeit?", "left": "sehr sicher", "right": "sehr unsicher", "hideIf": {"id": "r_lernen", "value": "Meine Region hat keine eigene Regionalsprache"}},
-
-  {"section": "Fragen zum Spracherwerb", "id": "r_einkaufen", "type": "scale", "text": "Wie sicher sprechen Sie Ihre Regionalsprache beim Einkaufen?", "left": "sehr sicher", "right": "sehr unsicher", "hideIf": {"id": "r_lernen", "value": "Meine Region hat keine eigene Regionalsprache"}},
-
-  {"section": "Fragen zum Spracherwerb", "id": "r_cafe", "type": "scale", "text": "Wie sicher sprechen Sie Ihre Regionalsprache in Cafés/Restaurants/Friseursalons/etc.?", "left": "sehr sicher", "right": "sehr unsicher", "hideIf": {"id": "r_lernen", "value": "Meine Region hat keine eigene Regionalsprache"}},
-
-  {"section": "Fragen zum Spracherwerb", "id": "r_freunde", "type": "scale", "text": "Wie sicher sprechen Sie Ihre Regionalsprache mit Freunden/Bekannten?", "left": "sehr sicher", "right": "sehr unsicher", "hideIf": {"id": "r_lernen", "value": "Meine Region hat keine eigene Regionalsprache"}},
-
-  {"section": "Fragen zum Spracherwerb", "id": "r_strasse", "type": "scale", "text": "Wie sicher sprechen Sie Ihre Regionalsprache mit zufälligen Personen auf der Straße?", "left": "sehr sicher", "right": "sehr unsicher", "hideIf": {"id": "r_lernen", "value": "Meine Region hat keine eigene Regionalsprache"}},
-
-  {"section": "Fragen zum Spracherwerb", "id": "r_amt", "type": "scale", "text": "Wie sicher sprechen Sie Ihre Regionalsprache in offiziellen Einrichtungen (z. B. Rathaus)?", "left": "sehr sicher", "right": "sehr unsicher", "hideIf": {"id": "r_lernen", "value": "Meine Region hat keine eigene Regionalsprache"}},
-
-  {"section": "Fragen zum Spracherwerb", "id": "r_telefon", "type": "scale", "text": "Wie sicher sprechen Sie Ihre Regionalsprache am Telefon?", "left": "sehr sicher", "right": "sehr unsicher", "hideIf": {"id": "r_lernen", "value": "Meine Region hat keine eigene Regionalsprache"}},
-
-  {"section": "Fragen zum Spracherwerb", "id": "r_email", "type": "scale", "text": "Wie sicher schreiben Sie in Ihrer Regionalsprache E-Mails?", "left": "sehr sicher", "right": "sehr unsicher", "hideIf": {"id": "r_lernen", "value": "Meine Region hat keine eigene Regionalsprache"}},
-
-  {"section": "Fragen zum Spracherwerb", "id": "r_lesen", "type": "radio", "text": "Lesen Sie eigenständig Literatur in Ihrer Regionalsprache?", "options": ["ja, fast immer in meiner Regionalsprache", "ja, ab und zu", "nur selten", "gar nicht"], "hideIf": {"id": "r_lernen", "value": "Meine Region hat keine eigene Regionalsprache"}},
-
-  {"section": "Fragen zum Spracherwerb", "id": "r_schriftlich", "type": "scale", "text": "Wie gut nehmen Sie Ihre Regionalsprache schriftlich wahr?", "left": "sehr sicher", "right": "verstehe gar nichts", "hideIf": {"id": "r_lernen", "value": "Meine Region hat keine eigene Regionalsprache"}},
-
-  {"section": "Fragen zum Spracherwerb", "id": "r_filme", "type": "radio", "text": "Schauen Sie Filme/Serien in Ihrer Regionalsprache an?", "options": ["ja, fast immer in meiner Regionalsprache", "ja, ab und zu", "nur selten", "gar nicht"], "hideIf": {"id": "r_lernen", "value": "Meine Region hat keine eigene Regionalsprache"}},
-
-  {"section": "Fragen zum Spracherwerb", "id": "r_musik", "type": "radio", "text": "Hören Sie Musik in Ihrer Regionalsprache?", "options": ["ja, fast immer in meiner Regionalsprache", "ja, ab und zu", "nur selten", "gar nicht"], "hideIf": {"id": "r_lernen", "value": "Meine Region hat keine eigene Regionalsprache"}},
-
-  {"section": "Fragen zum Spracherwerb", "id": "r_podcasts", "type": "radio", "text": "Hören Sie Podcasts in Ihrer Regionalsprache?", "options": ["ja, fast immer in meiner Regionalsprache", "ja, ab und zu", "nur selten", "gar nicht"], "hideIf": {"id": "r_lernen", "value": "Meine Region hat keine eigene Regionalsprache"}},
-
-  {"section": "Fragen zum Spracherwerb", "id": "r_audio", "type": "scale", "text": "Wie gut nehmen Sie akustisch audio- und audiovisuelle Medien in Ihrer Regionalsprache wahr?", "left": "sehr sicher", "right": "verstehe gar nichts", "hideIf": {"id": "r_lernen", "value": "Meine Region hat keine eigene Regionalsprache"}},
-
-  {"section": "Fragen zum Spracherwerb", "id": "r_leben", "type": "scale", "text": "Wie gut nehmen Sie akustisch Menschen in Ihrer Regionalsprache im echten Leben wahr?", "left": "sehr sicher", "right": "verstehe gar nichts", "hideIf": {"id": "r_lernen", "value": "Meine Region hat keine eigene Regionalsprache"}},
-
-  {"section": "Fragen zum Spracherwerb", "id": "r_influencer", "type": "radio", "text": "Folgen Sie Influencern/Kanälen in Ihrer Regionalsprache in den öffentlichen Medien?", "hint": "YouTube, Instagram etc.", "options": ["Ja, vielen", "Ja, einigen", "Nein, (fast) keinen"], "hideIf": {"id": "r_lernen", "value": "Meine Region hat keine eigene Regionalsprache"}}
+  {"section": "Fragen zum Spracherwerb", "id": "r_lernen", "type": "radio", "text": "Lernen Sie die Regionalsprache Ihrer Autonomie?", "options": ["Ja", "Nein", "Meine Region hat keine eigene Regionalsprache"], "hideIf": [{"id": "region", "in": ["Andalusien", "Kanarische Inseln", "Kantabrien", "Kastilien-La Mancha", "Madrid", "Murcia", "La Rioja", "Extremadura", "Ceuta", "Melilla"]}]},
+  {"section": "Fragen zum Spracherwerb", "id": "r_gelernt", "type": "textarea", "text": "Wie haben Sie Ihre Regionalsprache gelernt? / Wie lernen Sie Ihre Regionalsprache?", "hideIf": [{"id": "region", "in": ["Andalusien", "Kanarische Inseln", "Kantabrien", "Kastilien-La Mancha", "Madrid", "Murcia", "La Rioja", "Extremadura", "Ceuta", "Melilla"]}, {"id": "r_lernen", "in": ["Meine Region hat keine eigene Regionalsprache"]}]},
+  {"section": "Fragen zum Spracherwerb", "id": "r_bildung", "type": "scale", "text": "Wie sicher sprechen Sie Ihre Regionalsprache in der Bildungsstätte?", "left": "sehr sicher", "right": "sehr unsicher", "hideIf": [{"id": "region", "in": ["Andalusien", "Kanarische Inseln", "Kantabrien", "Kastilien-La Mancha", "Madrid", "Murcia", "La Rioja", "Extremadura", "Ceuta", "Melilla"]}, {"id": "r_lernen", "in": ["Meine Region hat keine eigene Regionalsprache"]}]},
+  {"section": "Fragen zum Spracherwerb", "id": "r_arbeit", "type": "scale", "text": "Wie sicher sprechen Sie Ihre Regionalsprache bei der Arbeit?", "left": "sehr sicher", "right": "sehr unsicher", "hideIf": [{"id": "region", "in": ["Andalusien", "Kanarische Inseln", "Kantabrien", "Kastilien-La Mancha", "Madrid", "Murcia", "La Rioja", "Extremadura", "Ceuta", "Melilla"]}, {"id": "r_lernen", "in": ["Meine Region hat keine eigene Regionalsprache"]}]},
+  {"section": "Fragen zum Spracherwerb", "id": "r_einkaufen", "type": "scale", "text": "Wie sicher sprechen Sie Ihre Regionalsprache beim Einkaufen?", "left": "sehr sicher", "right": "sehr unsicher", "hideIf": [{"id": "region", "in": ["Andalusien", "Kanarische Inseln", "Kantabrien", "Kastilien-La Mancha", "Madrid", "Murcia", "La Rioja", "Extremadura", "Ceuta", "Melilla"]}, {"id": "r_lernen", "in": ["Meine Region hat keine eigene Regionalsprache"]}]},
+  {"section": "Fragen zum Spracherwerb", "id": "r_cafe", "type": "scale", "text": "Wie sicher sprechen Sie Ihre Regionalsprache in Cafés/Restaurants/Friseursalons/etc.?", "left": "sehr sicher", "right": "sehr unsicher", "hideIf": [{"id": "region", "in": ["Andalusien", "Kanarische Inseln", "Kantabrien", "Kastilien-La Mancha", "Madrid", "Murcia", "La Rioja", "Extremadura", "Ceuta", "Melilla"]}, {"id": "r_lernen", "in": ["Meine Region hat keine eigene Regionalsprache"]}]},
+  {"section": "Fragen zum Spracherwerb", "id": "r_freunde", "type": "scale", "text": "Wie sicher sprechen Sie Ihre Regionalsprache mit Freunden/Bekannten?", "left": "sehr sicher", "right": "sehr unsicher", "hideIf": [{"id": "region", "in": ["Andalusien", "Kanarische Inseln", "Kantabrien", "Kastilien-La Mancha", "Madrid", "Murcia", "La Rioja", "Extremadura", "Ceuta", "Melilla"]}, {"id": "r_lernen", "in": ["Meine Region hat keine eigene Regionalsprache"]}]},
+  {"section": "Fragen zum Spracherwerb", "id": "r_strasse", "type": "scale", "text": "Wie sicher sprechen Sie Ihre Regionalsprache mit zufälligen Personen auf der Straße?", "left": "sehr sicher", "right": "sehr unsicher", "hideIf": [{"id": "region", "in": ["Andalusien", "Kanarische Inseln", "Kantabrien", "Kastilien-La Mancha", "Madrid", "Murcia", "La Rioja", "Extremadura", "Ceuta", "Melilla"]}, {"id": "r_lernen", "in": ["Meine Region hat keine eigene Regionalsprache"]}]},
+  {"section": "Fragen zum Spracherwerb", "id": "r_amt", "type": "scale", "text": "Wie sicher sprechen Sie Ihre Regionalsprache in offiziellen Einrichtungen (z. B. Rathaus)?", "left": "sehr sicher", "right": "sehr unsicher", "hideIf": [{"id": "region", "in": ["Andalusien", "Kanarische Inseln", "Kantabrien", "Kastilien-La Mancha", "Madrid", "Murcia", "La Rioja", "Extremadura", "Ceuta", "Melilla"]}, {"id": "r_lernen", "in": ["Meine Region hat keine eigene Regionalsprache"]}]},
+  {"section": "Fragen zum Spracherwerb", "id": "r_telefon", "type": "scale", "text": "Wie sicher sprechen Sie Ihre Regionalsprache am Telefon?", "left": "sehr sicher", "right": "sehr unsicher", "hideIf": [{"id": "region", "in": ["Andalusien", "Kanarische Inseln", "Kantabrien", "Kastilien-La Mancha", "Madrid", "Murcia", "La Rioja", "Extremadura", "Ceuta", "Melilla"]}, {"id": "r_lernen", "in": ["Meine Region hat keine eigene Regionalsprache"]}]},
+  {"section": "Fragen zum Spracherwerb", "id": "r_email", "type": "scale", "text": "Wie sicher schreiben Sie in Ihrer Regionalsprache E-Mails?", "left": "sehr sicher", "right": "sehr unsicher", "hideIf": [{"id": "region", "in": ["Andalusien", "Kanarische Inseln", "Kantabrien", "Kastilien-La Mancha", "Madrid", "Murcia", "La Rioja", "Extremadura", "Ceuta", "Melilla"]}, {"id": "r_lernen", "in": ["Meine Region hat keine eigene Regionalsprache"]}]},
+  {"section": "Fragen zum Spracherwerb", "id": "r_lesen", "type": "radio", "text": "Lesen Sie eigenständig Literatur in Ihrer Regionalsprache?", "options": ["ja, fast immer in meiner Regionalsprache", "ja, ab und zu", "nur selten", "gar nicht"], "hideIf": [{"id": "region", "in": ["Andalusien", "Kanarische Inseln", "Kantabrien", "Kastilien-La Mancha", "Madrid", "Murcia", "La Rioja", "Extremadura", "Ceuta", "Melilla"]}, {"id": "r_lernen", "in": ["Meine Region hat keine eigene Regionalsprache"]}]},
+  {"section": "Fragen zum Spracherwerb", "id": "r_schriftlich", "type": "scale", "text": "Wie gut nehmen Sie Ihre Regionalsprache schriftlich wahr?", "left": "sehr sicher", "right": "verstehe gar nichts", "hideIf": [{"id": "region", "in": ["Andalusien", "Kanarische Inseln", "Kantabrien", "Kastilien-La Mancha", "Madrid", "Murcia", "La Rioja", "Extremadura", "Ceuta", "Melilla"]}, {"id": "r_lernen", "in": ["Meine Region hat keine eigene Regionalsprache"]}]},
+  {"section": "Fragen zum Spracherwerb", "id": "r_filme", "type": "radio", "text": "Schauen Sie Filme/Serien in Ihrer Regionalsprache an?", "options": ["ja, fast immer in meiner Regionalsprache", "ja, ab und zu", "nur selten", "gar nicht"], "hideIf": [{"id": "region", "in": ["Andalusien", "Kanarische Inseln", "Kantabrien", "Kastilien-La Mancha", "Madrid", "Murcia", "La Rioja", "Extremadura", "Ceuta", "Melilla"]}, {"id": "r_lernen", "in": ["Meine Region hat keine eigene Regionalsprache"]}]},
+  {"section": "Fragen zum Spracherwerb", "id": "r_musik", "type": "radio", "text": "Hören Sie Musik in Ihrer Regionalsprache?", "options": ["ja, fast immer in meiner Regionalsprache", "ja, ab und zu", "nur selten", "gar nicht"], "hideIf": [{"id": "region", "in": ["Andalusien", "Kanarische Inseln", "Kantabrien", "Kastilien-La Mancha", "Madrid", "Murcia", "La Rioja", "Extremadura", "Ceuta", "Melilla"]}, {"id": "r_lernen", "in": ["Meine Region hat keine eigene Regionalsprache"]}]},
+  {"section": "Fragen zum Spracherwerb", "id": "r_podcasts", "type": "radio", "text": "Hören Sie Podcasts in Ihrer Regionalsprache?", "options": ["ja, fast immer in meiner Regionalsprache", "ja, ab und zu", "nur selten", "gar nicht"], "hideIf": [{"id": "region", "in": ["Andalusien", "Kanarische Inseln", "Kantabrien", "Kastilien-La Mancha", "Madrid", "Murcia", "La Rioja", "Extremadura", "Ceuta", "Melilla"]}, {"id": "r_lernen", "in": ["Meine Region hat keine eigene Regionalsprache"]}]},
+  {"section": "Fragen zum Spracherwerb", "id": "r_audio", "type": "scale", "text": "Wie gut nehmen Sie akustisch audio- und audiovisuelle Medien in Ihrer Regionalsprache wahr?", "left": "sehr sicher", "right": "verstehe gar nichts", "hideIf": [{"id": "region", "in": ["Andalusien", "Kanarische Inseln", "Kantabrien", "Kastilien-La Mancha", "Madrid", "Murcia", "La Rioja", "Extremadura", "Ceuta", "Melilla"]}, {"id": "r_lernen", "in": ["Meine Region hat keine eigene Regionalsprache"]}]},
+  {"section": "Fragen zum Spracherwerb", "id": "r_leben", "type": "scale", "text": "Wie gut nehmen Sie akustisch Menschen in Ihrer Regionalsprache im echten Leben wahr?", "left": "sehr sicher", "right": "verstehe gar nichts", "hideIf": [{"id": "region", "in": ["Andalusien", "Kanarische Inseln", "Kantabrien", "Kastilien-La Mancha", "Madrid", "Murcia", "La Rioja", "Extremadura", "Ceuta", "Melilla"]}, {"id": "r_lernen", "in": ["Meine Region hat keine eigene Regionalsprache"]}]},
+  {"section": "Fragen zum Spracherwerb", "id": "r_influencer", "type": "radio", "text": "Folgen Sie Influencern/Kanälen in Ihrer Regionalsprache in den öffentlichen Medien?", "hint": "YouTube, Instagram etc.", "options": ["Ja, vielen", "Ja, einigen", "Nein, (fast) keinen"], "hideIf": [{"id": "region", "in": ["Andalusien", "Kanarische Inseln", "Kantabrien", "Kastilien-La Mancha", "Madrid", "Murcia", "La Rioja", "Extremadura", "Ceuta", "Melilla"]}, {"id": "r_lernen", "in": ["Meine Region hat keine eigene Regionalsprache"]}]}
 ];
 
-// ---------- Zustand ----------
 const answers = {};
 let current = 0;
-
-// Fragen können je nach früherer Antwort übersprungen werden (hideIf)
-const visible = i => { const h = questions[i].hideIf; return !h || answers[h.id] !== h.value; };
-function step(from, dir) {
-  let i = from + dir;
-  while (i >= 0 && i < questions.length && !visible(i)) i += dir;
-  return i;
-}
+let done = false;
+let lang = pickLang();
 
 const card = document.getElementById("card");
 const bar = document.getElementById("bar");
 const counter = document.getElementById("counter");
 const progress = document.querySelector(".progress");
+
+// ---------- Sprache ----------
+function pickLang() {
+  const p = new URLSearchParams(location.search).get("lang");
+  const cand = [p, ...(navigator.languages || [navigator.language])].filter(Boolean).map(x => x.toLowerCase().slice(0, 2));
+  return cand.find(c => TR[c]) || "de";
+}
+const t = (k, v) => {
+  let s = (TR[lang].ui || {})[k] ?? UI_DE[k];
+  for (const x in (v || {})) s = s.replace("{" + x + "}", v[x]);
+  return s;
+};
+const opt = v => v === "Anderes" ? t("other") : (lang === "de" ? v : ((TR[lang].o || {})[v] || v));
+const secText = q => lang === "de" ? q.section : ((TR[lang].sec || [])[SEC_DE.indexOf(q.section)] || q.section);
+const extraLabel = q => lang === "de" ? q.extra.label : ((TR[lang].x || {})[q.extra.id] || q.extra.label);
+
+function qText(q) {
+  if (lang === "de") return q.text;
+  const T = TR[lang], m = q.id.match(/^([kr])_(\w+)$/);
+  if (m) {
+    const pi = m[1] === "k" ? 0 : 1, key = m[2], ix = SPEAK.indexOf(key);
+    if (ix >= 0) return T.p.speak.replace("{L}", T.L[pi]).replace("{c}", (pi === 0 && ix === 4) ? T.ctxK4 : T.ctx[ix]);
+    if (T.p[key]) return T.p[key].replace(/\{L\}/g, T.L[pi]);
+  }
+  if (q.id === "kastilisch_gelernt") return T.p.gelernt.replace(/\{L\}/g, T.L[0]);
+  return T.q[q.id] || q.text;
+}
+function qHint(q) {
+  const key = q.id === "selbstbild" ? "selbstbild" : q.id === "fremdsprachen" ? "fremdsprachen"
+    : /influencer$/.test(q.id) ? "social" : q.type === "checkbox" ? "multi" : null;
+  if (!key) return "";
+  return lang === "de" ? (q.hint || "") : ((TR[lang].h || {})[key] || q.hint || "");
+}
+
+// ---------- Bedingungen ----------
+function visible(i) {
+  const q = questions[i];
+  if ((q.hideIf || []).some(c => c.in.includes(answers[c.id]))) return false;
+  return (q.showIf || []).every(c => c.in.includes(answers[c.id]));
+}
+function step(from, dir) {
+  let i = from + dir;
+  while (i >= 0 && i < questions.length && !visible(i)) i += dir;
+  return i;
+}
 
 // ---------- Hilfsfunktionen ----------
 const esc = s => String(s).replace(/[&<>"']/g, c =>
@@ -298,7 +289,16 @@ const esc = s => String(s).replace(/[&<>"']/g, c =>
 function optionHTML(type, name, value, checked) {
   return `<label class="option">
     <input type="${type}" name="${name}" value="${esc(value)}" ${checked ? "checked" : ""}>
-    <span>${esc(value)}</span></label>`;
+    <span>${esc(opt(value))}</span></label>`;
+}
+
+function applyStatic() {
+  document.documentElement.lang = lang;
+  document.title = t("title");
+  document.getElementById("h1").textContent = t("title");
+  document.getElementById("sub").textContent = t("sub");
+  document.getElementById("lang-lbl").textContent = t("lang");
+  document.getElementById("lang").value = lang;
 }
 
 // ---------- Rendern ----------
@@ -312,69 +312,71 @@ function render() {
   } else if (q.type === "number") {
     input = `<input type="number" id="field" inputmode="numeric" min="${q.min}" max="${q.max}" value="${esc(saved || "")}">`;
   } else if (q.type === "select") {
-    input = `<select id="field"><option value="">Bitte auswählen …</option>` +
-      q.options.map(o => `<option ${saved === o ? "selected" : ""}>${esc(o)}</option>`).join("") +
-      `</select>`;
+    input = `<select id="field"><option value="">${esc(t("choose"))}</option>` +
+      q.options.map(o => `<option value="${esc(o)}" ${saved === o ? "selected" : ""}>${esc(opt(o))}</option>`).join("") + `</select>`;
   } else if (q.type === "radio") {
     const otherText = answers[q.id + "_anderes"] || "";
     input = `<div class="options">` +
       q.options.map(o => optionHTML("radio", q.id, o, saved === o)).join("") +
       (q.other ? optionHTML("radio", q.id, "Anderes", saved === "Anderes") : "") + `</div>` +
-      (q.other ? `<div class="extra"><input type="text" id="other-text" placeholder="Bitte angeben" value="${esc(otherText)}" aria-label="Andere Antwort"></div>` : "");
+      (q.other ? `<div class="extra"><input type="text" id="other-text" placeholder="${esc(t("otherPh"))}" value="${esc(otherText)}" aria-label="${esc(t("other"))}"></div>` : "");
   } else if (q.type === "textarea") {
     input = `<textarea id="field" rows="4">${esc(saved || "")}</textarea>`;
   } else if (q.type === "scale") {
-    input = `<div class="scale"><div class="ends"><span>${esc(q.left)}</span><span>${esc(q.right)}</span></div>
-      <div class="pts" role="radiogroup" aria-label="${esc(q.text)}">` +
-      [6, 5, 4, 3, 2, 1].map(v => `<label class="pt"><input type="radio" name="${q.id}" value="${v}" ${Number(saved) === v ? "checked" : ""} aria-label="Stufe ${7 - v} von 6"></label>`).join("") +
-      `</div></div>`;
+    const sv = Number(saved) || 0;
+    const lo = q.right === "verstehe gar nichts" ? t("lowUnder") : t("lowSpeak");
+    input = `<div class="scale"><div class="ends"><span>${esc(lo)}</span><span>${esc(t("high"))}</span></div>
+      <div class="sl"><input type="range" id="slider" min="1" max="100" step="1" value="${sv || 50}" data-touched="${sv ? 1 : 0}"
+        class="${sv ? "" : "untouched"}" aria-label="${esc(qText(q))}"><output id="sval" for="slider">${sv || esc(t("unset"))}</output></div></div>`;
   } else if (q.type === "checkbox") {
     const list = saved || [];
-    const otherText = (answers[q.id + "_anderes"] || "");
+    const otherText = answers[q.id + "_anderes"] || "";
     input = `<div class="options">` +
       q.options.map(o => optionHTML("checkbox", q.id, o, list.includes(o))).join("") +
-      (q.other ? `<label class="option">
-          <input type="checkbox" id="other-check" ${otherText ? "checked" : ""}>
-          <span>Anderes:</span></label>` : "") +
+      (q.other ? `<label class="option"><input type="checkbox" id="other-check" ${otherText ? "checked" : ""}><span>${esc(t("other"))}:</span></label>` : "") +
       `</div>` +
-      (q.other ? `<div class="extra"><input type="text" id="other-text" placeholder="Bitte angeben" value="${esc(otherText)}" aria-label="Andere Sprache"></div>` : "");
+      (q.other ? `<div class="extra"><input type="text" id="other-text" placeholder="${esc(t("otherPh"))}" value="${esc(otherText)}" aria-label="${esc(t("other"))}"></div>` : "");
   }
 
   const extra = q.extra ? `<div class="extra">
-      <label for="extra-field">${esc(q.extra.label)}</label>
+      <label for="extra-field">${esc(extraLabel(q))}</label>
       <input type="text" id="extra-field" value="${esc(answers[q.extra.id] || "")}"></div>` : "";
-
+  const hint = qHint(q);
   const isLast = step(current, 1) >= questions.length;
 
   card.innerHTML = `
-    <p class="section">${esc(q.section)}</p>
-    <h2 class="question">${current + 1}. ${esc(q.text)}</h2>
-    ${q.hint ? `<p class="hint">${esc(q.hint)}</p>` : ""}
+    <p class="section">${esc(secText(q))}</p>
+    <h2 class="question">${current + 1}. ${esc(qText(q))}</h2>
+    ${hint ? `<p class="hint">${esc(hint)}</p>` : ""}
     ${input}
     ${extra}
     <p class="error" id="error" role="alert"></p>
     <div class="nav">
-      <button type="button" class="btn-secondary" id="back" ${step(current, -1) < 0 ? "disabled" : ""}>Zurück</button>
-      <button type="button" class="btn-primary" id="next">${isLast ? "Abschließen" : "Weiter"}</button>
+      <button type="button" class="btn-secondary" id="back" ${step(current, -1) < 0 ? "disabled" : ""}>${esc(t("back"))}</button>
+      <button type="button" class="btn-primary" id="next">${esc(isLast ? t("finish") : t("next"))}</button>
     </div>`;
 
-  // Fortschritt
   const pct = (current / questions.length) * 100;
   bar.style.width = pct + "%";
   progress.setAttribute("aria-valuenow", Math.round(pct));
-  counter.textContent = `Frage ${current + 1} von ${questions.length}`;
+  counter.textContent = t("counter", { n: current + 1, m: questions.length });
 
   document.getElementById("back").addEventListener("click", goBack);
   document.getElementById("next").addEventListener("click", goNext);
 
-  // Enter-Taste bei Einzeilen-Feldern
   const field = document.getElementById("field");
   if (field && field.tagName === "INPUT") {
     field.addEventListener("keydown", e => { if (e.key === "Enter") goNext(); });
     field.focus();
   }
-
-  // "Anderes" automatisch ankreuzen, sobald getippt wird
+  const sl = document.getElementById("slider");
+  if (sl) {
+    const touch = () => {
+      sl.dataset.touched = "1"; sl.classList.remove("untouched");
+      document.getElementById("sval").textContent = sl.value;
+    };
+    ["input", "pointerdown"].forEach(ev => sl.addEventListener(ev, touch));
+  }
   const ot = document.getElementById("other-text");
   if (ot) {
     ot.addEventListener("input", () => {
@@ -390,14 +392,17 @@ function render() {
 
 // ---------- Antwort lesen + prüfen ----------
 function collect(q) {
-  if (q.type === "radio" || q.type === "scale") {
+  if (q.type === "radio") {
     const c = card.querySelector(`input[name="${q.id}"]:checked`);
     return c ? c.value : "";
   }
+  if (q.type === "scale") {
+    const s = document.getElementById("slider");
+    return s && s.dataset.touched === "1" ? s.value : "";
+  }
   if (q.type === "checkbox") {
     const list = [...card.querySelectorAll(`input[name="${q.id}"]:checked`)].map(i => i.value);
-    const oc = document.getElementById("other-check");
-    const ot = document.getElementById("other-text");
+    const oc = document.getElementById("other-check"), ot = document.getElementById("other-text");
     if (oc && oc.checked && ot.value.trim()) list.push("Anderes: " + ot.value.trim());
     return list;
   }
@@ -406,22 +411,17 @@ function collect(q) {
 
 function validate(q, value) {
   if (q.type === "checkbox") {
-    const oc = document.getElementById("other-check");
-    const ot = document.getElementById("other-text");
-    if (oc && oc.checked && !ot.value.trim()) return "Bitte geben Sie bei „Anderes“ eine Sprache an.";
-    if (!value.length) return "Bitte wählen Sie mindestens eine Antwort aus.";
-    if (q.exclusive && value.includes(q.exclusive) && value.length > 1)
-      return `„${q.exclusive}“ kann nicht mit anderen Antworten kombiniert werden.`;
+    const oc = document.getElementById("other-check"), ot = document.getElementById("other-text");
+    if (oc && oc.checked && !ot.value.trim()) return t("errOther");
+    if (!value.length) return t("errPickMulti");
+    if (q.exclusive && value.includes(q.exclusive) && value.length > 1) return t("errExcl", { x: opt(q.exclusive) });
     return "";
   }
-  if (!value) return q.type === "radio" || q.type === "select" || q.type === "scale"
-    ? "Bitte wählen Sie eine Antwort aus." : "Bitte beantworten Sie diese Frage.";
-  if (q.type === "radio" && q.other && value === "Anderes" && !document.getElementById("other-text").value.trim())
-    return "Bitte geben Sie bei „Anderes“ eine Antwort an.";
+  if (!value) return q.type === "scale" ? t("errSlider") : (q.type === "radio" || q.type === "select") ? t("errPick") : t("errAnswer");
+  if (q.type === "radio" && q.other && value === "Anderes" && !document.getElementById("other-text").value.trim()) return t("errOther");
   if (q.type === "number") {
     const n = Number(value);
-    if (!Number.isInteger(n) || n < q.min || n > q.max)
-      return `Bitte geben Sie eine ganze Zahl zwischen ${q.min} und ${q.max} ein.`;
+    if (!Number.isInteger(n) || n < q.min || n > q.max) return t("errNum", { a: q.min, b: q.max });
   }
   return "";
 }
@@ -450,44 +450,59 @@ function goNext() {
 
 function goBack() {
   const q = questions[current];
-  // Eingaben beim Zurückgehen behalten (ohne Pflichtprüfung)
   const value = collect(q);
   if (value && value.length !== 0) save(q, value);
   current = Math.max(step(current, -1), 0);
   render();
 }
 
+document.getElementById("lang").addEventListener("change", e => {
+  if (!done) {
+    try { const q = questions[current], v = collect(q); if (v && v.length !== 0) save(q, v); } catch (_) {}
+  }
+  lang = e.target.value;
+  applyStatic();
+  render();
+});
+
 // ---------- Ergebnis ----------
+function fmtAnswer(q, a) {
+  if (q.type === "scale") return a + " / 100";
+  if (Array.isArray(a)) return a.map(x => x.startsWith("Anderes: ") ? t("other") + ": " + x.slice(9) : opt(x)).join(", ");
+  if (q.type === "radio" && a === "Anderes" && answers[q.id + "_anderes"]) return t("other") + ": " + answers[q.id + "_anderes"];
+  return (q.options && q.options.includes(a)) ? opt(a) : a;
+}
+
 function showResult() {
+  done = true;
+  document.getElementById("lang").disabled = true;
   // Antworten übersprungener Fragen verwerfen
+  const vis = questions.map((q, i) => visible(i));
   questions.forEach((q, i) => {
-    if (!visible(i)) {
+    if (!vis[i]) {
       delete answers[q.id]; delete answers[q.id + "_anderes"];
       if (q.extra) delete answers[q.extra.id];
     }
   });
+  answers.sprache = lang;
+
   bar.style.width = "100%";
   progress.setAttribute("aria-valuenow", 100);
-  counter.textContent = "Fertig";
+  counter.textContent = "";
 
   const rows = questions.map((q, i) => {
-    if (!visible(i)) return "";
-    let a = answers[q.id];
-    if (Array.isArray(a)) a = a.join(", ");
-    if (q.type === "scale") a = a + " von 6";
-    if (q.type === "radio" && a === "Anderes" && answers[q.id + "_anderes"]) a = "Anderes: " + answers[q.id + "_anderes"];
-    let extra = "";
-    if (q.extra && answers[q.extra.id]) extra = ` (${esc(answers[q.extra.id])})`;
-    return `<dt>${i + 1}. ${esc(q.text)}</dt><dd>${esc(a)}${extra}</dd>`;
+    if (!vis[i]) return "";
+    const extra = q.extra && answers[q.extra.id] ? ` (${esc(answers[q.extra.id])})` : "";
+    return `<dt>${i + 1}. ${esc(qText(q))}</dt><dd>${esc(fmtAnswer(q, answers[q.id]))}${extra}</dd>`;
   }).join("");
 
   card.innerHTML = `<div class="result">
-    <h2>Vielen Dank!</h2>
-    <p>Das sind Ihre Antworten zu den Fragen 1 bis ${questions.length}:</p>
+    <h2>${esc(t("thanks"))}</h2>
+    <p>${esc(t("summary"))}</p>
     <dl>${rows}</dl>
-    <p class="error" id="send-status" role="status" style="color:var(--muted)">Ihre Antworten werden gesendet …</p>
+    <p class="error" id="send-status" role="status" style="color:var(--muted)">${esc(t("sending"))}</p>
     <div class="nav">
-      <button type="button" class="btn-secondary" id="download">Kopie als Datei speichern</button>
+      <button type="button" class="btn-secondary" id="download">${esc(t("download"))}</button>
     </div></div>`;
 
   document.getElementById("download").addEventListener("click", download);
@@ -499,11 +514,11 @@ async function sendAnswers() {
   try {
     await window.saveAnswers(answers);
     s.style.color = "var(--accent)";
-    s.textContent = "Ihre Antworten wurden gespeichert. Vielen Dank für Ihre Teilnahme!";
+    s.textContent = t("sent");
   } catch (err) {
     console.error(err);
     s.style.color = "var(--error)";
-    s.textContent = "Das Senden hat nicht geklappt. Bitte speichern Sie eine Kopie als Datei und schicken Sie sie uns.";
+    s.textContent = t("failed");
   }
 }
 
@@ -516,6 +531,9 @@ function download() {
   URL.revokeObjectURL(a.href);
 }
 
+// ---------- Start ----------
+document.getElementById("lang").innerHTML = UI_LANGS.filter(([c]) => TR[c]).map(([c, n]) => `<option value="${c}">${n}</option>`).join("");
+applyStatic();
 render();
 </script>
 </body>

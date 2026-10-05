@@ -104,7 +104,7 @@
 
   <div class="kpis" id="kpis"></div>
   <div class="grid" id="grid"></div>
-  <footer>Neue Antworten erscheinen automatisch. Bei Fragen, die übersprungen werden konnten, beziehen sich die Prozentwerte nur auf die Personen, die sie beantwortet haben. Offene Textantworten werden ohne Beachtung von Groß-/Kleinschreibung zusammengefasst.</footer>
+  <footer>Neue Antworten erscheinen automatisch. Freitexte aus allen Sprachen werden, wo möglich, automatisch auf eine gemeinsame deutsche Bezeichnung vereinheitlicht; nicht erkannte Angaben stehen aufklappbar unter der jeweiligen Karte. Bei Fragen, die übersprungen werden konnten, beziehen sich die Prozentwerte nur auf die Personen, die sie beantwortet haben. Offene Textantworten werden ohne Beachtung von Groß-/Kleinschreibung zusammengefasst.</footer>
 </main>
 
 <script>
@@ -115,8 +115,8 @@ const FOLLOW = ["Ja, vielen", "Ja, einigen", "Nein, (fast) keinen"];
 const orderBleiben = ["Definitiv", "Gut wahrscheinlich", "Eher nicht", "Auf gar keinen Fall", "Weiß ich noch nicht"];
 const ageBins = [["unter 18", 0, 17], ["18–24", 18, 24], ["25–34", 25, 34], ["35–44", 35, 44], ["45–54", 45, 54], ["55+", 55, 200]];
 const MULTI = "Mehrfachnennungen möglich, Prozent beziehen sich auf die Befragten.";
-const SCALE_SPEAK = "Mittelwert auf einer Skala von 1 bis 6 (6 = sehr sicher).";
-const SCALE_UNDERSTAND = "Mittelwert auf einer Skala von 1 bis 6 (6 = versteht alles).";
+const SCALE_SPEAK = "Mittelwert auf einer Skala von 1 bis 100 (100 = sehr sicher).";
+const SCALE_UNDERSTAND = "Mittelwert auf einer Skala von 1 bis 100 (100 = versteht alles).";
 
 const speakRows = p => [[p + "bildung", "Bildungsstätte"], [p + "arbeit", "Arbeit"], [p + "einkaufen", "Einkaufen"],
   [p + "cafe", "Café / Restaurant / Friseur"], [p + "freunde", "Freunde / Bekannte"], [p + "strasse", "Zufällige Personen"],
@@ -125,15 +125,104 @@ const understandRows = p => [[p + "schriftlich", "Geschriebenes verstehen"], [p 
 const mediaRows = p => [[p + "lesen", "Literatur lesen"], [p + "filme", "Filme / Serien"], [p + "musik", "Musik"], [p + "podcasts", "Podcasts"]];
 const langs = id => d => (d[id] || []).map(s => s.startsWith("Anderes:") ? "Anderes" : s);
 
+// ---------- Vereinheitlichung freier Texteingaben (alle Sprachen -> Deutsch) ----------
+// Jeder Eintrag: [deutsche Bezeichnung, Muster]. Die Reihenfolge ist wichtig (z. B. Belarus vor Russland).
+const COUNTRY = [
+  ["Belarus", /belarus|weißruss|weissruss|bielorr|белорус|беларус|білорус/],
+  ["Russland", /russland|russia|rusia|росси|росі|ресей/],
+  ["Ukraine", /ukrain|ucrani|украин|україн|украйн/],
+  ["Kasachstan", /kasach|kazakh|kazaj|казахст|қазақст|казах|қазақ/],
+  ["Usbekistan", /usbek|uzbek|узбек|өзбек|ўзбек/],
+  ["Kirgisistan", /kirgis|kyrgyz|kirguis|киргиз|қырғыз|кыргыз/],
+  ["Tadschikistan", /tadschik|tajik|tayik|таджик|тәжік|таджік/],
+  ["Turkmenistan", /turkmen|туркмен|түрікмен/],
+  ["Georgien", /georgi|грузи|грузін|гүрж/],
+  ["Armenien", /armeni|армени|әрмен|вірмен/],
+  ["Aserbaidschan", /aserbaid|azerbaij|azerbaiy|азербайд|әзербайж/],
+  ["Moldau", /moldau|moldov|молдов|молдав/],
+  ["Lettland", /lettland|latvia|letonia|латви/],
+  ["Litauen", /litauen|lithuan|lituan|литв|литов/],
+  ["Estland", /estland|estonia|эстони|естон|эстон/],
+  ["Deutschland", /deutsch|german|alemani|герман|німеч|неміс|алмания/],
+  ["Spanien", /spanien|spain|españa|espana|испани|іспані/],
+  ["Polen", /polen|poland|polonia|польш|польщ/],
+  ["Israel", /israel|израил|ізраїл/],
+  ["Türkei", /türkei|turkei|turkey|turquía|turquia|турци|туреч|түркия/],
+  ["Venezuela", /venezuel|венесуэл|венесуел/],
+  ["Kolumbien", /kolumbi|colombia|колумби/]
+];
+const IDENTITY = [
+  ["Belarusse/Belarussin", /belarus|weißruss|weissruss|bielorr|белорус|беларус|білорус/],
+  ["Russe/Russin", /russ|ruso|rusa|рус|росс|росі|орыс/],
+  ["Ukrainer/Ukrainerin", /ukrain|ucrani|укра/],
+  ["Kasache/Kasachin", /kasach|kazakh|kazajo|казах|қазақ/],
+  ["Tatare/Tatarin", /tatar|tártar|татар/],
+  ["Usbeke/Usbekin", /usbek|uzbek|узбек|өзбек/],
+  ["Katalane/Katalanin", /katalan|catal|катал/],
+  ["Huzule/Huzulin", /huzul|hutsul|гуцул/],
+  ["Spanier/Spanierin", /spanier|spaniard|español|espanol|испанец|іспанець|испанк/],
+  ["Europäer/Europäerin", /europ|європ|еуроп|европ/]
+];
+const LANGNAMES = [
+  ["Weißrussisch", /belarus|weißruss|weissruss|bielorr|белорус|беларус|білорус/],
+  ["Russisch", /russ|ruso|рус|орыс/],
+  ["Ukrainisch", /ukrain|ucrani|укра/],
+  ["Kasachisch", /kasach|kazakh|kazajo|казах|қазақ/],
+  ["Tatarisch", /tatar|tártar|татар/],
+  ["Englisch", /englisch|english|inglés|ingles|англ|ағылш/],
+  ["Spanisch/Kastilisch", /spanisch|spanish|español|espanol|castellano|kastil|кастил|испан|іспан/],
+  ["Deutsch", /deutsch|german|alemán|aleman|немецк|німецьк|неміс|герман/],
+  ["Französisch", /franz|french|francés|frances|француз/],
+  ["Italienisch", /italien|italian|итальян|італ/],
+  ["Portugiesisch", /portug|португал/],
+  ["Katalanisch", /katalan|catal|катал/],
+  ["Polnisch", /polnisch|polish|polaco|польск|польськ|поляк/],
+  ["Türkisch", /türk|turk|turco|турец|турецьк|түрік/],
+  ["Chinesisch", /chines|chinese|chino|китай/],
+  ["Japanisch", /japan|japon|япон|жапон/],
+  ["Arabisch", /arab|араб/]
+];
+const DUR_ORDER = ["unter 1 Jahr", "1 bis unter 3 Jahre", "3 bis unter 6 Jahre", "6 bis 10 Jahre", "über 10 Jahre"];
+const SPLIT = /[,;\n\/]| und | and | y | и | та | және /i;
+
+const matchMap = (map, raw) => { const s = String(raw).toLowerCase(); const hit = map.find(([, re]) => re.test(s)); return hit ? hit[0] : null; };
+
+function durationBucket(raw) {
+  const s = String(raw).toLowerCase();
+  let years = 0, found = false, m;
+  const re = /(\d+(?:[.,]\d+)?)\s*([^\d\s,.;]*)/g;
+  while ((m = re.exec(s))) {
+    const n = parseFloat(m[1].replace(",", ".")), unit = m[2];
+    found = true;
+    if (n >= 1950 && n <= 2100) years += Math.max(2026 - n, 0);
+    else if (/^(mon|mes|мес|міс|ай)/.test(unit)) years += n / 12;
+    else years += n;
+  }
+  if (!found) return null;
+  if (years < 1) return DUR_ORDER[0];
+  if (years < 3) return DUR_ORDER[1];
+  if (years < 6) return DUR_ORDER[2];
+  if (years <= 10) return DUR_ORDER[3];
+  return DUR_ORDER[4];
+}
+
+function levelOf(raw) {
+  const cyr = { "а": "A", "А": "A", "в": "B", "В": "B", "с": "C", "С": "C" };
+  const s = String(raw).replace(/([аАвВсС])\s?([12])/g, (m, l, n) => cyr[l] + n);
+  const m = s.match(/\b([abc])\s?([12])\b/i);
+  return m ? m[1].toUpperCase() + m[2] : null;
+}
+
 const SECTIONS = [
   { title: "Zur Person", items: [
     { kind: "age" },
+    { title: "Sprache, in der die Umfrage ausgefüllt wurde", get: d => [({ de: "Deutsch", en: "Englisch", es: "Spanisch", ru: "Russisch", uk: "Ukrainisch", kk: "Kasachisch" })[d.sprache]] },
     { title: "Geschlecht (Frage 2)", get: d => [d.geschlecht] },
     { title: "Höchster Bildungsgrad (Frage 3)", get: d => [d.bildung] },
-    { title: "Herkunftsland (Frage 4)", get: d => [d.herkunft], free: true, top: 10 },
-    { title: "Selbstwahrnehmung (Frage 5)", get: d => [d.selbstbild], free: true, top: 10 },
+    { kind: "norm", title: "Herkunftsland (Frage 4)", vals: d => [d.herkunft], map: COUNTRY, top: 12 },
+    { kind: "norm", title: "Selbstwahrnehmung (Frage 5)", vals: d => [d.selbstbild], map: IDENTITY, top: 12 },
     { title: "Wohnsituation (Frage 6)", get: d => [d.wohnsituation] },
-    { title: "Dauer in Spanien (Frage 7, Freitext)", get: d => [d.dauer_spanien], free: true, top: 10 },
+    { kind: "norm", title: "Dauer in Spanien (Frage 7)", vals: d => [d.dauer_spanien], fn: durationBucket, order: DUR_ORDER },
     { title: "Wohnort / Autonome Gemeinschaft (Frage 8)", get: d => [d.region], top: 19 },
     { title: "Bleibeabsicht (Frage 9)", get: d => [d.bleiben], order: orderBleiben }
   ]},
@@ -145,15 +234,18 @@ const SECTIONS = [
     { title: "Sprache im engsten Freundeskreis (Frage 14)", get: d => [d.freunde_sprache] },
     { title: "Sprache bei Arbeit / Ausbildung (Frage 15)", get: d => [d.arbeit_sprache] },
     { title: "Sprechen Kastilisch? (Frage 16)", get: d => [d.kastilisch_sprechen] },
-    { title: "Niveau Kastilisch (Frage 16, Freitext)", get: d => [d.kastilisch_niveau], free: true, top: 10 }
+    { kind: "norm", title: "Niveau Kastilisch (Frage 16)", vals: d => [d.kastilisch_niveau], fn: levelOf, order: ["A1", "A2", "B1", "B2", "C1", "C2"] },
+    { kind: "norm", title: "Weitere Sprachen unter „Anderes“ (Fragen 10–15)", split: true, map: LANGNAMES, top: 12,
+      vals: d => ["muttersprache", "partner_sprache", "kinder_sprache", "eltern_sprache", "freunde_sprache", "arbeit_sprache"].map(k => d[k + "_anderes"]) }
   ]},
   { title: "Spracherwerb: Kastilisch", items: [
     { kind: "mean", title: "Sicherheit beim Sprechen (Fragen 19–27)", rows: speakRows("k_"), note: SCALE_SPEAK },
     { kind: "mean", title: "Verstehen (Fragen 29, 33, 34)", rows: understandRows("k_"), note: SCALE_UNDERSTAND },
     { kind: "stack", title: "Literatur und Medien (Fragen 28, 30–32)", rows: mediaRows("k_"), options: FREQ },
     { title: "Influencer / Kanäle (Frage 35)", get: d => [d.k_influencer], order: FOLLOW },
-    { kind: "text", title: "Weitere Fremdsprachen (Frage 17)", id: "fremdsprachen" },
-    { kind: "text", title: "Wie Kastilisch gelernt wurde (Frage 18)", id: "kastilisch_gelernt" }
+    { kind: "norm", title: "Weitere Fremdsprachen (Frage 17)", vals: d => [d.fremdsprachen], map: LANGNAMES, split: true, top: 12 },
+    { kind: "text", title: "Fremdsprachen: Originalantworten (Frage 17)", id: "fremdsprachen" },
+    { kind: "text", title: "Wie Kastilisch gelernt wurde: Originalantworten (Frage 18)", id: "kastilisch_gelernt" }
   ]},
   { title: "Spracherwerb: Regionalsprache", items: [
     { title: "Lernen Sie die Regionalsprache? (Frage 36)", get: d => [d.r_lernen] },
@@ -161,7 +253,7 @@ const SECTIONS = [
     { kind: "mean", title: "Verstehen (Fragen 48, 52, 53)", rows: understandRows("r_"), note: SCALE_UNDERSTAND },
     { kind: "stack", title: "Literatur und Medien (Fragen 47, 49–51)", rows: mediaRows("r_"), options: RFREQ },
     { title: "Influencer / Kanäle (Frage 54)", get: d => [d.r_influencer], order: FOLLOW },
-    { kind: "text", title: "Wie die Regionalsprache gelernt wurde (Frage 37)", id: "r_gelernt" }
+    { kind: "text", title: "Wie die Regionalsprache gelernt wurde: Originalantworten (Frage 37)", id: "r_gelernt" }
   ]}
 ];
 
@@ -228,7 +320,7 @@ function meanCard(it) {
     const row = el("div", "bar-row");
     row.append(el("span", "lbl", label));
     const track = el("div", "track"), fill = el("div", "fill");
-    fill.style.width = m === null ? "0" : (m / 6 * 100) + "%";
+    fill.style.width = m === null ? "0" : m + "%";
     track.append(fill);
     row.append(track, el("span", "val", m === null ? "–" : `Ø ${fmt(m)} (n=${v.length})`));
     card.append(row);
@@ -277,7 +369,34 @@ function textCard(it) {
   return card;
 }
 
+function normCard(it) {
+  const counts = new Map(), miss = [];
+  let base = 0;
+  data.forEach(d => {
+    const raws = it.vals(d).filter(filled).flatMap(v => it.split ? String(v).split(SPLIT) : [v])
+      .map(v => String(v).trim()).filter(Boolean);
+    if (!raws.length) return;
+    base++;
+    const mine = new Set();
+    raws.forEach(v => { const l = it.fn ? it.fn(v) : matchMap(it.map, v); if (l) mine.add(l); else miss.push(v); });
+    mine.forEach(l => counts.set(l, (counts.get(l) || 0) + 1));
+  });
+  let entries = [...counts].map(([label, n]) => ({ label, n }));
+  if (it.order) entries.sort((a, b) => it.order.indexOf(a.label) - it.order.indexOf(b.label));
+  else entries.sort((a, b) => b.n - a.n || a.label.localeCompare(b.label, "de"));
+  if (it.top) entries = entries.slice(0, it.top);
+  const card = barCard(it.title, entries, base || 1, "Alle Sprachen vereinheitlicht. " + base + " Antworten.");
+  if (miss.length) {
+    const det = el("details"), ul = el("ul");
+    det.append(el("summary", "", `${miss.length} Angaben nicht automatisch zugeordnet`), ul);
+    miss.forEach(v => ul.append(el("li", "", v)));
+    card.append(det);
+  }
+  return card;
+}
+
 function buildCard(it) {
+  if (it.kind === "norm") return normCard(it);
   if (it.kind === "age") {
     const ages = data.map(d => d.alter).filter(num);
     return barCard("Altersverteilung (Frage 1)",
@@ -310,8 +429,8 @@ function render() {
    [ages.length ? fmt(meanOf(ages)) : "–", "Durchschnittsalter"],
    [ages.length ? median(ages) : "–", "Median Alter"],
    [Math.round(stay / n * 100) + " %", "wollen in Spanien bleiben (definitiv / wahrscheinlich)"],
-   [k === null ? "–" : fmt(k), "Ø Sprechsicherheit Kastilisch (1–6)"],
-   [r === null ? "–" : fmt(r), "Ø Sprechsicherheit Regionalsprache (1–6)"]
+   [k === null ? "–" : fmt(k), "Ø Sprechsicherheit Kastilisch (1–100)"],
+   [r === null ? "–" : fmt(r), "Ø Sprechsicherheit Regionalsprache (1–100)"]
   ].forEach(([v, l]) => { const e = el("div", "kpi"); e.append(el("b", "", v), el("span", "", l)); kpis.append(e); });
 
   SECTIONS.forEach(sec => {
