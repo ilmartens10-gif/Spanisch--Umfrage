@@ -104,7 +104,7 @@
 
   <div class="kpis" id="kpis"></div>
   <div class="grid" id="grid"></div>
-  <footer>Neue Antworten erscheinen automatisch. Freitexte aus allen Sprachen werden, wo möglich, automatisch auf eine gemeinsame deutsche Bezeichnung vereinheitlicht; nicht erkannte Angaben stehen aufklappbar unter der jeweiligen Karte. Bei Fragen, die übersprungen werden konnten, beziehen sich die Prozentwerte nur auf die Personen, die sie beantwortet haben. Offene Textantworten werden ohne Beachtung von Groß-/Kleinschreibung zusammengefasst.</footer>
+  <footer>Neue Antworten erscheinen automatisch. Freitexte aus allen Sprachen werden, wo möglich, automatisch auf eine gemeinsame deutsche Bezeichnung vereinheitlicht; nicht erkannte Angaben erscheinen mit * im Original, damit nichts verloren geht. Bei Fragen, die übersprungen werden konnten, beziehen sich die Prozentwerte nur auf die Personen, die sie beantwortet haben. Offene Textantworten werden ohne Beachtung von Groß-/Kleinschreibung zusammengefasst.</footer>
 </main>
 
 <script>
@@ -126,69 +126,171 @@ const mediaRows = p => [[p + "lesen", "Literatur lesen"], [p + "filme", "Filme /
 const langs = id => d => (d[id] || []).map(s => s.startsWith("Anderes:") ? "Anderes" : s);
 
 // ---------- Vereinheitlichung freier Texteingaben (alle Sprachen -> Deutsch) ----------
-// Jeder Eintrag: [deutsche Bezeichnung, Muster]. Die Reihenfolge ist wichtig (z. B. Belarus vor Russland).
-const COUNTRY = [
-  ["Belarus", /belarus|weißruss|weissruss|bielorr|белорус|беларус|білорус/],
-  ["Russland", /russland|russia|rusia|росси|росі|ресей/],
-  ["Ukraine", /ukrain|ucrani|украин|україн|украйн/],
-  ["Kasachstan", /kasach|kazakh|kazaj|казахст|қазақст|казах|қазақ/],
-  ["Usbekistan", /usbek|uzbek|узбек|өзбек|ўзбек/],
-  ["Kirgisistan", /kirgis|kyrgyz|kirguis|киргиз|қырғыз|кыргыз/],
-  ["Tadschikistan", /tadschik|tajik|tayik|таджик|тәжік|таджік/],
-  ["Turkmenistan", /turkmen|туркмен|түрікмен/],
-  ["Georgien", /georgi|грузи|грузін|гүрж/],
-  ["Armenien", /armeni|армени|әрмен|вірмен/],
-  ["Aserbaidschan", /aserbaid|azerbaij|azerbaiy|азербайд|әзербайж/],
-  ["Moldau", /moldau|moldov|молдов|молдав/],
-  ["Lettland", /lettland|latvia|letonia|латви/],
-  ["Litauen", /litauen|lithuan|lituan|литв|литов/],
-  ["Estland", /estland|estonia|эстони|естон|эстон/],
-  ["Deutschland", /deutsch|german|alemani|герман|німеч|неміс|алмания/],
-  ["Spanien", /spanien|spain|españa|espana|испани|іспані/],
-  ["Polen", /polen|poland|polonia|польш|польщ/],
-  ["Israel", /israel|израил|ізраїл/],
-  ["Türkei", /türkei|turkei|turkey|turquía|turquia|турци|туреч|түркия/],
-  ["Venezuela", /venezuel|венесуэл|венесуел/],
-  ["Kolumbien", /kolumbi|colombia|колумби/]
+// Eine Tabelle für Länder, Völker und Sprachen: [Land, Person, Sprache, Muster in allen Sprachen].
+// Reihenfolge wichtig (z. B. Belarus vor Russland). null = gibt es für diese Art nicht.
+const PEOPLES = [
+  ["Belarus", "Belarusse/Belarussin", "Weißrussisch", /belarus|weißruss|weissruss|bielorr|belorus|белорус|беларус|білорус/],
+  ["Russland", "Russe/Russin", "Russisch", /russ|rusia|ruso|rusa|росси|росі|рус|орыс|ресей/],
+  ["Ukraine", "Ukrainer/Ukrainerin", "Ukrainisch", /ukrain|ucrani|укра/],
+  ["Kasachstan", "Kasache/Kasachin", "Kasachisch", /kasach|kazakh|kazaj|казах|қазақ/],
+  ["Usbekistan", "Usbeke/Usbekin", "Usbekisch", /usbek|uzbek|узбек|өзбек|ўзбек/],
+  ["Kirgisistan", "Kirgise/Kirgisin", "Kirgisisch", /kirgis|kyrgyz|kirguis|киргиз|кыргыз|қырғыз/],
+  ["Tadschikistan", "Tadschike/Tadschikin", "Tadschikisch", /tadschik|tajik|tayik|таджик|таджік|тәжік/],
+  ["Turkmenistan", "Turkmene/Turkmenin", "Turkmenisch", /turkmen|туркмен|түрікмен/],
+  ["Georgien", "Georgier/Georgierin", "Georgisch", /georgi|грузи|грузін|гүрж/],
+  ["Armenien", "Armenier/Armenierin", "Armenisch", /armeni|армени|әрмен|вірмен/],
+  ["Aserbaidschan", "Aserbaidschaner/Aserbaidschanerin", "Aserbaidschanisch", /aserbaid|azerbaij|azerbaiy|azeri|азербайд|әзербайж/],
+  ["Moldau", "Moldauer/Moldauerin", "Moldauisch", /moldau|moldov|молдов|молдав/],
+  ["Lettland", "Lette/Lettin", "Lettisch", /lettland|lettisch|latvi|letonia|латви|латв/],
+  ["Litauen", "Litauer/Litauerin", "Litauisch", /litau|lithuan|lituan|литв|литов/],
+  ["Estland", "Este/Estin", "Estnisch", /estland|estnisch|estonia|эстон|естон/],
+  [null, "Tatare/Tatarin", "Tatarisch", /tatar|tártar|татар/],
+  [null, "Baschkire/Baschkirin", "Baschkirisch", /baschk|bashk|башк/],
+  [null, "Tschetschene/Tschetschenin", "Tschetschenisch", /tschetsch|chechen|checheno|чечен/],
+  ["Ukraine", "Huzule/Huzulin", null, /huzul|hutsul|гуцул/],
+  [null, "Kosake/Kosakin", null, /kosak|cossack|cosaco|казак|козак/],
+  [null, "Tamile/Tamilin", "Tamilisch", /tamil|тамил/],
+  ["Sri Lanka", "Sri-Lanker/Sri-Lankerin", "Singhalesisch", /sri.?lank|ceylon|шри.?ланк|сингал|singhal/],
+  ["Schweiz", "Schweizer/Schweizerin", null, /schweiz|swiss|switzerland|suiza|suizo|швейцар/],
+  ["Österreich", "Österreicher/Österreicherin", null, /österreich|osterreich|austria|австри|аустри/],
+  ["Spanien", "Katalane/Katalanin", "Katalanisch", /katalan|kataloni|catal|катал/],
+  ["Spanien", "Baske/Baskin", "Baskisch", /baske|baskin|baskisch|euskar|euskera|vasc|баск/],
+  ["Spanien", "Galicier/Galicierin", "Galicisch", /galicier|galic|galleg|galiz|галис|галіс/],
+  ["Spanien", "Spanier/Spanierin", "Spanisch/Kastilisch", /spani|spain|españ|espan|castellano|kastil|кастил|испан|іспан/],
+  ["Deutschland", "Deutscher/Deutsche", "Deutsch", /deutsch|german|alemán|aleman|немец|немецк|німе|герман|алмания|неміс|алман/],
+  ["Portugal", "Portugiese/Portugiesin", "Portugiesisch", /portug|португал/],
+  ["Frankreich", "Franzose/Französin", "Französisch", /franc|franz|french|франц/],
+  ["Italien", "Italiener/Italienerin", "Italienisch", /ital|итал|італ/],
+  ["Polen", "Pole/Polin", "Polnisch", /polen|polnisch|poland|polish|polaco|polonia|\bpole\b|\bpolin\b|польш|польщ|польск|польськ|поляк|поляч/],
+  ["Tschechien", "Tscheche/Tschechin", "Tschechisch", /tschech|czech|checo|чех/],
+  ["Slowakei", "Slowake/Slowakin", "Slowakisch", /slowak|slovak|eslovac|словак|словач/],
+  ["Slowenien", "Slowene/Slowenin", "Slowenisch", /slowen|sloven|esloven|словен/],
+  ["Ungarn", "Ungar/Ungarin", "Ungarisch", /ungar|hungar|húngar|венгр|угор|мадьяр/],
+  ["Rumänien", "Rumäne/Rumänin", "Rumänisch", /romania|rumän|ruman|румын|румун/],
+  ["Bulgarien", "Bulgare/Bulgarin", "Bulgarisch", /bulgar|болгар|булгар/],
+  ["Serbien", "Serbe/Serbin", "Serbisch", /serb|серб/],
+  ["Kroatien", "Kroate/Kroatin", "Kroatisch", /kroat|croat|croac|хорват/],
+  ["Bosnien", "Bosnier/Bosnierin", "Bosnisch", /bosn|босни|боснія/],
+  ["Nordmazedonien", "Mazedonier/Mazedonierin", "Mazedonisch", /mazedon|macedon|makedon|македон/],
+  ["Albanien", "Albaner/Albanerin", "Albanisch", /alban|албан/],
+  ["Montenegro", "Montenegriner/Montenegrinerin", "Montenegrinisch", /montenegr|черногор|чорногор|чернагор/],
+  ["Griechenland", "Grieche/Griechin", "Griechisch", /griech|greek|griego|grecia|греци|грек|грец/],
+  ["Türkei", "Türke/Türkin", "Türkisch", /türk|turk|turqu|турц|турец|турет|түрік|түркия/],
+  ["Israel", "Israeli", "Hebräisch", /israel|израил|ізраїл|hebr|иврит|іврит/],
+  [null, "Jude/Jüdin", null, /\bjude\b|jüdin|jewish|judío|еврей|єврей/],
+  ["Iran", "Iraner/Iranerin", "Persisch", /iran|persi|farsi|иран|персид|парс/],
+  ["Irak", "Iraker/Irakerin", "Arabisch", /irak|iraq|ирак/],
+  ["Syrien", "Syrer/Syrerin", "Arabisch", /syri|siria|сири/],
+  ["Libanon", "Libanese/Libanesin", "Arabisch", /libanon|lebanon|líbano|ливан|ліван/],
+  ["Ägypten", "Ägypter/Ägypterin", "Arabisch", /ägypt|egypt|egipt|египе|єгип/],
+  ["Marokko", "Marokkaner/Marokkanerin", "Arabisch", /marokk|moroc|marruec|марокк/],
+  ["Algerien", "Algerier/Algerierin", "Arabisch", /alger|argel|алжир/],
+  ["Tunesien", "Tunesier/Tunesierin", "Arabisch", /tunes|tunis|тунис/],
+  [null, null, "Arabisch", /arab|араб/],
+  ["Afghanistan", "Afghane/Afghanin", "Dari/Paschtu", /afghan|афган|ауған|paschtu|pashto|пушту/],
+  ["Indien", "Inder/Inderin", "Hindi", /indi(?:en|a\b|sch|er)|hindi|индия|индий|індія|індій|үндістан|индиец/],
+  ["Pakistan", "Pakistaner/Pakistanerin", "Urdu", /pakistan|urdu|пакистан/],
+  ["Bangladesch", "Bangladescher/Bangladescherin", "Bengalisch", /banglad|bengal|бангладеш|бенгал/],
+  ["Nepal", "Nepalese/Nepalesin", "Nepalesisch", /nepal|непал/],
+  ["China", "Chinese/Chinesin", "Chinesisch", /china|chinese|chinesisch|chino|китай/],
+  ["Japan", "Japaner/Japanerin", "Japanisch", /japan|japon|япон|жапон/],
+  ["Korea", "Koreaner/Koreanerin", "Koreanisch", /korea|corea|корея|корей/],
+  ["Mongolei", "Mongole/Mongolin", "Mongolisch", /mongol|монгол/],
+  ["Vietnam", "Vietnamese/Vietnamesin", "Vietnamesisch", /vietnam|вьетнам|в'єтнам/],
+  ["Thailand", "Thailänder/Thailänderin", "Thailändisch", /thai|таиланд|тайланд|таїланд|тайск/],
+  ["Philippinen", "Filipino/Filipina", "Filipino", /philipp|filipin|филипп|філіпп/],
+  ["Indonesien", "Indonesier/Indonesierin", "Indonesisch", /indones|индонез|індонез/],
+  ["Irland", "Ire/Irin", "Irisch", /irland|ireland|irlanda|irisch|irish|ирланд|ірланд/],
+  ["Großbritannien", "Brite/Britin", "Englisch", /großbrit|grossbrit|britain|brit|england|english|englisch|inglés|ingles|inglaterra|reino unido|англи|англій|британ|ағылш|ұлыбритан/],
+  ["USA", "Amerikaner/Amerikanerin", null, /\busa\b|u\.s\.a|united states|estados unidos|amerik|americ|америк|сша|ақш/],
+  ["Kanada", "Kanadier/Kanadierin", null, /kanad|canad|канад/],
+  ["Australien", "Australier/Australierin", null, /austral|австрал/],
+  ["Brasilien", "Brasilianer/Brasilianerin", null, /brasil|brazil|бразил/],
+  ["Argentinien", "Argentinier/Argentinierin", null, /argentin|аргентин/],
+  ["Mexiko", "Mexikaner/Mexikanerin", null, /mexi|мекс/],
+  ["Kolumbien", "Kolumbianer/Kolumbianerin", null, /kolumbi|colombi|колумби/],
+  ["Venezuela", "Venezolaner/Venezolanerin", null, /venezuel|венесуэл|венесуел/],
+  ["Peru", "Peruaner/Peruanerin", null, /peru|перу/],
+  ["Chile", "Chilene/Chilenin", null, /chile|чили|чилі/],
+  ["Kuba", "Kubaner/Kubanerin", null, /kuba|cuba|куба/],
+  ["Ecuador", "Ecuadorianer/Ecuadorianerin", null, /ecuador|эквадор|еквадор/],
+  ["Bolivien", "Bolivianer/Bolivianerin", null, /boliv|болив/],
+  ["Schweden", "Schwede/Schwedin", "Schwedisch", /schwed|swed|suec|швед/],
+  ["Norwegen", "Norweger/Norwegerin", "Norwegisch", /norweg|norw|norueg|норвеж|норвег/],
+  ["Dänemark", "Däne/Dänin", "Dänisch", /dänemark|danemark|dänisch|danisch|denmark|danish|dinamarca|дания|данія|датск|датськ/],
+  ["Finnland", "Finne/Finnin", "Finnisch", /finn|финлянд|фінлянд/],
+  ["Island", "Isländer/Isländerin", "Isländisch", /island|iceland|islandia|исланд|ісланд/],
+  ["Niederlande", "Niederländer/Niederländerin", "Niederländisch", /niederl|holland|dutch|netherl|holand|países bajos|нидерл|голланд/],
+  ["Belgien", "Belgier/Belgierin", null, /belg|бельг/],
+  [null, null, "Latein", /latein|latin|latín|латин/],
+  [null, "Europäer/Europäerin", null, /europ|європ|еуроп|европ/],
+  [null, "Weltbürger/Weltbürgerin", null, /weltbürg|weltburg|cosmopol|космополит|гражданин мира|громадянин світу|ciudadano del mundo|citizen of the world|әлем азамат/]
 ];
-const IDENTITY = [
-  ["Belarusse/Belarussin", /belarus|weißruss|weissruss|bielorr|белорус|беларус|білорус/],
-  ["Russe/Russin", /russ|ruso|rusa|рус|росс|росі|орыс/],
-  ["Ukrainer/Ukrainerin", /ukrain|ucrani|укра/],
-  ["Kasache/Kasachin", /kasach|kazakh|kazajo|казах|қазақ/],
-  ["Tatare/Tatarin", /tatar|tártar|татар/],
-  ["Usbeke/Usbekin", /usbek|uzbek|узбек|өзбек/],
-  ["Katalane/Katalanin", /katalan|catal|катал/],
-  ["Huzule/Huzulin", /huzul|hutsul|гуцул/],
-  ["Spanier/Spanierin", /spanier|spaniard|español|espanol|испанец|іспанець|испанк/],
-  ["Europäer/Europäerin", /europ|європ|еуроп|европ/]
-];
-const LANGNAMES = [
-  ["Weißrussisch", /belarus|weißruss|weissruss|bielorr|белорус|беларус|білорус/],
-  ["Russisch", /russ|ruso|рус|орыс/],
-  ["Ukrainisch", /ukrain|ucrani|укра/],
-  ["Kasachisch", /kasach|kazakh|kazajo|казах|қазақ/],
-  ["Tatarisch", /tatar|tártar|татар/],
-  ["Englisch", /englisch|english|inglés|ingles|англ|ағылш/],
-  ["Spanisch/Kastilisch", /spanisch|spanish|español|espanol|castellano|kastil|кастил|испан|іспан/],
-  ["Deutsch", /deutsch|german|alemán|aleman|немецк|німецьк|неміс|герман/],
-  ["Französisch", /franz|french|francés|frances|француз/],
-  ["Italienisch", /italien|italian|итальян|італ/],
-  ["Portugiesisch", /portug|португал/],
-  ["Katalanisch", /katalan|catal|катал/],
-  ["Polnisch", /polnisch|polish|polaco|польск|польськ|поляк/],
-  ["Türkisch", /türk|turk|turco|турец|турецьк|түрік/],
-  ["Chinesisch", /chines|chinese|chino|китай/],
-  ["Japanisch", /japan|japon|япон|жапон/],
-  ["Arabisch", /arab|араб/]
-];
+const FIELD = { country: 0, identity: 1, lang: 2 };
 const DUR_ORDER = ["unter 1 Jahr", "1 bis unter 3 Jahre", "3 bis unter 6 Jahre", "6 bis 10 Jahre", "über 10 Jahre"];
-const SPLIT = /[,;\n\/]| und | and | y | и | та | және /i;
 
-const matchMap = (map, raw) => { const s = String(raw).toLowerCase(); const hit = map.find(([, re]) => re.test(s)); return hit ? hit[0] : null; };
+// Platzhalter wie "-", "keine", "nein", "gar nicht" in allen Sprachen
+const NONE_RE = /^\s*(?:[-–—\/.?_*~]+|keine?[rsm]?|none|nada|ninguno|ninguna|ningún|нет|немає|нема|нету|жоқ|nein|no|gar nicht|nicht|nix|n\/a|na|ничего|нічого|ештеңе)\s*$/i;
+const LANG_IGNORE = new Set(["und", "and", "y", "и", "та", "және", "mit", "auch", "noch", "sowie", "ein", "eine", "bisschen", "etwas", "wenig",
+  "gut", "sehr", "fließend", "fliessend", "flüssig", "grundkenntnisse", "kenntnisse", "basic", "fluent", "good", "little", "nativ", "native",
+  "muttersprache", "un", "poco", "fluido", "хорошо", "свободно", "немного", "трохи", "вільно", "жақсы", "еркін", "аздап", "sprache", "language",
+  "idioma", "язык", "мова", "тілі", "тіл", "weitere", "weiteren", "weiter", "other", "otros", "другие", "інші", "ещё", "ще", "а", "также", "теж", "сондай-ақ"]);
+
+function tokens(it, raw) {
+  const s = String(raw);
+  if (it.split === "lang") {
+    return s.replace(/\([^)]*\)/g, " ").replace(/\b[abc][12]\b/gi, " ")
+      .split(/[,;\n\/&+]+|\s+/).map(x => x.replace(/^[^\p{L}]+|[^\p{L}]+$/gu, ""))
+      .filter(x => x && !LANG_IGNORE.has(x.toLowerCase()));
+  }
+  if (it.split === "basic") return s.split(/[,;\n\/&+]+|\s+(?:und|and|y|и|та|және)\s+/i).map(x => x.trim()).filter(Boolean);
+  return [s.trim()];
+}
+
+function labelFor(it, tok) {
+  if (NONE_RE.test(tok)) return "__none__";
+  if (it.fn) return it.fn(tok);
+  const s = tok.toLowerCase(), f = FIELD[it.table];
+  for (const row of PEOPLES) if (row[3].test(s) && row[f]) return row[f];
+  return null;
+}
+
+// Zählt pro Person jede Kategorie höchstens einmal. Nicht erkannte Angaben bleiben im Original (mit *), nichts geht verloren.
+function aggregate(it, perPerson) {
+  const counts = new Map();
+  let base = 0, orig = false;
+  perPerson.forEach(vals => {
+    const toks = vals.filter(filled).flatMap(v => NONE_RE.test(String(v)) ? ["-"] : tokens(it, v));
+    if (!toks.length) return;
+    base++;
+    const mine = new Map();
+    toks.forEach(tok => {
+      let l = labelFor(it, tok), key;
+      if (l === "__none__") { l = it.noneLabel || "Keine Angabe"; key = l; }
+      else if (l) key = l;
+      else { l = tok.charAt(0).toUpperCase() + tok.slice(1) + " *"; key = "*" + tok.toLowerCase(); orig = true; }
+      mine.set(key, l);
+    });
+    mine.forEach((l, key) => { const e = counts.get(key) || { label: l, n: 0 }; e.n++; counts.set(key, e); });
+  });
+  const idx = l => { if (!it.order) return 0; const i = it.order.indexOf(l); return i < 0 ? 999 : i; };
+  let entries = [...counts.values()].sort((a, b) => idx(a.label) - idx(b.label) || b.n - a.n || a.label.localeCompare(b.label, "de"));
+  if (it.top) entries = entries.slice(0, it.top);
+  return { entries, base, orig };
+}
+
+// Zahlwörter 1-10 in allen Sprachen, damit "zwei Jahre", "dos años" usw. erkannt werden
+const NUMWORDS = [
+  ["ein|eine|einem|einen|one|un|uno|una|один|одна|одного|бір", 1], ["zwei|two|dos|два|две|дві|екі", 2], ["drei|three|tres|три|үш", 3],
+  ["vier|four|cuatro|четыре|чотири|төрт", 4], ["fünf|funf|five|cinco|пять|п'ять|бес", 5], ["sechs|six|seis|шесть|шість|алты", 6],
+  ["sieben|seven|siete|семь|сім|жеті", 7], ["acht|eight|ocho|восемь|вісім|сегіз", 8], ["neun|nine|nueve|девять|дев'ять|тоғыз", 9],
+  ["zehn|ten|diez|десять|десять|он", 10]
+].map(([w, n]) => [new RegExp("(?<![\\p{L}])(?:" + w + ")(?![\\p{L}])", "gu"), String(n)]);
 
 function durationBucket(raw) {
-  const s = String(raw).toLowerCase();
+  let s = String(raw).toLowerCase();
+  if (/halbes jahr|half a year|medio año|полгода|півроку|жарты жыл/.test(s)) return DUR_ORDER[0];
+  NUMWORDS.forEach(([re, n]) => { s = s.replace(re, n); });
   let years = 0, found = false, m;
   const re = /(\d+(?:[.,]\d+)?)\s*([^\d\s,.;]*)/g;
   while ((m = re.exec(s))) {
@@ -219,8 +321,8 @@ const SECTIONS = [
     { title: "Sprache, in der die Umfrage ausgefüllt wurde", get: d => [({ de: "Deutsch", en: "Englisch", es: "Spanisch", ru: "Russisch", uk: "Ukrainisch", kk: "Kasachisch" })[d.sprache]] },
     { title: "Geschlecht (Frage 2)", get: d => [d.geschlecht] },
     { title: "Höchster Bildungsgrad (Frage 3)", get: d => [d.bildung] },
-    { kind: "norm", title: "Herkunftsland (Frage 4)", vals: d => [d.herkunft], map: COUNTRY, top: 12 },
-    { kind: "norm", title: "Selbstwahrnehmung (Frage 5)", vals: d => [d.selbstbild], map: IDENTITY, top: 12 },
+    { kind: "norm", title: "Herkunftsland (Frage 4)", vals: d => [d.herkunft], table: "country", split: "basic", top: 25 },
+    { kind: "norm", title: "Selbstwahrnehmung (Frage 5)", vals: d => [d.selbstbild], table: "identity", top: 25 },
     { title: "Wohnsituation (Frage 6)", get: d => [d.wohnsituation] },
     { kind: "norm", title: "Dauer in Spanien (Frage 7)", vals: d => [d.dauer_spanien], fn: durationBucket, order: DUR_ORDER },
     { title: "Wohnort / Autonome Gemeinschaft (Frage 8)", get: d => [d.region], top: 19 },
@@ -235,7 +337,7 @@ const SECTIONS = [
     { title: "Sprache bei Arbeit / Ausbildung (Frage 15)", get: d => [d.arbeit_sprache] },
     { title: "Sprechen Kastilisch? (Frage 16)", get: d => [d.kastilisch_sprechen] },
     { kind: "norm", title: "Niveau Kastilisch (Frage 16)", vals: d => [d.kastilisch_niveau], fn: levelOf, order: ["A1", "A2", "B1", "B2", "C1", "C2"] },
-    { kind: "norm", title: "Weitere Sprachen unter „Anderes“ (Fragen 10–15)", split: true, map: LANGNAMES, top: 12,
+    { kind: "norm", title: "Weitere Sprachen unter „Anderes“ (Fragen 10–15)", split: "lang", table: "lang", noneLabel: "Keine", top: 25,
       vals: d => ["muttersprache", "partner_sprache", "kinder_sprache", "eltern_sprache", "freunde_sprache", "arbeit_sprache"].map(k => d[k + "_anderes"]) }
   ]},
   { title: "Spracherwerb: Kastilisch", items: [
@@ -243,7 +345,7 @@ const SECTIONS = [
     { kind: "mean", title: "Verstehen (Fragen 29, 33, 34)", rows: understandRows("k_"), note: SCALE_UNDERSTAND },
     { kind: "stack", title: "Literatur und Medien (Fragen 28, 30–32)", rows: mediaRows("k_"), options: FREQ },
     { title: "Influencer / Kanäle (Frage 35)", get: d => [d.k_influencer], order: FOLLOW },
-    { kind: "norm", title: "Weitere Fremdsprachen (Frage 17)", vals: d => [d.fremdsprachen], map: LANGNAMES, split: true, top: 12 },
+    { kind: "norm", title: "Weitere Fremdsprachen (Frage 17)", vals: d => [d.fremdsprachen], table: "lang", split: "lang", noneLabel: "Keine weiteren Fremdsprachen", top: 25 },
     { kind: "text", title: "Fremdsprachen: Originalantworten (Frage 17)", id: "fremdsprachen" },
     { kind: "text", title: "Wie Kastilisch gelernt wurde: Originalantworten (Frage 18)", id: "kastilisch_gelernt" }
   ]},
@@ -370,29 +472,9 @@ function textCard(it) {
 }
 
 function normCard(it) {
-  const counts = new Map(), miss = [];
-  let base = 0;
-  data.forEach(d => {
-    const raws = it.vals(d).filter(filled).flatMap(v => it.split ? String(v).split(SPLIT) : [v])
-      .map(v => String(v).trim()).filter(Boolean);
-    if (!raws.length) return;
-    base++;
-    const mine = new Set();
-    raws.forEach(v => { const l = it.fn ? it.fn(v) : matchMap(it.map, v); if (l) mine.add(l); else miss.push(v); });
-    mine.forEach(l => counts.set(l, (counts.get(l) || 0) + 1));
-  });
-  let entries = [...counts].map(([label, n]) => ({ label, n }));
-  if (it.order) entries.sort((a, b) => it.order.indexOf(a.label) - it.order.indexOf(b.label));
-  else entries.sort((a, b) => b.n - a.n || a.label.localeCompare(b.label, "de"));
-  if (it.top) entries = entries.slice(0, it.top);
-  const card = barCard(it.title, entries, base || 1, "Alle Sprachen vereinheitlicht. " + base + " Antworten.");
-  if (miss.length) {
-    const det = el("details"), ul = el("ul");
-    det.append(el("summary", "", `${miss.length} Angaben nicht automatisch zugeordnet`), ul);
-    miss.forEach(v => ul.append(el("li", "", v)));
-    card.append(det);
-  }
-  return card;
+  const r = aggregate(it, data.map(it.vals));
+  const note = "Alle Sprachen vereinheitlicht. " + r.base + " Antworten." + (r.orig ? " * = Originalangabe (nicht automatisch zuordenbar)." : "");
+  return barCard(it.title, r.entries, r.base || 1, note);
 }
 
 function buildCard(it) {
