@@ -67,14 +67,6 @@
   .val { color: var(--muted); white-space: nowrap; }
   .empty { color: var(--muted); font: .9rem system-ui, sans-serif; }
   footer { margin-top: 24px; font: .8rem system-ui, sans-serif; color: var(--muted); }
-  .pdf-toolbar { display: flex; justify-content: flex-end; margin: -8px 0 18px; }
-  .pdf-toolbar button { background: var(--accent); color: var(--card); }
-  .pdf-toolbar button:disabled { opacity: .7; cursor: wait; }
-  @media print {
-    .no-pdf { display: none !important; }
-    .card, .kpi, .panel { break-inside: avoid; page-break-inside: avoid; }
-    body { background: #fff !important; color: #1c2b33 !important; }
-  }
   :root { --c0: #0f6b6b; --c1: #4aa8a8; --c2: #a9d3d3; --c3: #c9d3d8; }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --c0: #5cc0c0; --c1: #3d9a9a; --c2: #2c6b6b; --c3: #46565e; } }
   :root[data-theme="dark"] { --c0: #5cc0c0; --c1: #3d9a9a; --c2: #2c6b6b; --c3: #46565e; }
@@ -94,9 +86,6 @@
 <main>
   <h1>Umfrage – Statistik</h1>
   <p class="sub">Live-Auswertung aller 54 Fragen</p>
-  <div class="pdf-toolbar no-pdf">
-    <button type="button" id="exportPdfBtn">⬇ Als PDF herunterladen</button>
-  </div>
 
   <section class="panel" id="login">
     <p class="ui">Bitte melde dich an, um die Live-Auswertung zu sehen.</p>
@@ -569,53 +558,6 @@ async function login() {
 byId("loginBtn").addEventListener("click", login);
 byId("pw").addEventListener("keydown", e => { if (e.key === "Enter") login(); });
 byId("logout").addEventListener("click", () => signOut(auth));
-</script>
-
-<!-- Erstellt beim Klick eine PDF-Datei direkt im Browser. Internetverbindung zum Laden der Bibliothek erforderlich. -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-<script>
-  document.getElementById("exportPdfBtn").addEventListener("click", async function () {
-    const button = this;
-    const originalLabel = button.textContent;
-    button.disabled = true;
-    button.textContent = "PDF wird erstellt …";
-    try {
-      if (typeof window.html2pdf !== "function") {
-        throw new Error("Die PDF-Bibliothek konnte nicht geladen werden.");
-      }
-      const target = document.querySelector("main");
-      const bg = getComputedStyle(document.body).backgroundColor || "#ffffff";
-      const date = new Date().toISOString().slice(0, 10);
-      await window.html2pdf().set({
-        margin: [10, 10, 12, 10],
-        filename: `umfrage-statistik-${date}.pdf`,
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: {
-          scale: 2,
-          useCORS: true,
-          backgroundColor: bg,
-          scrollY: 0,
-          onclone: function (clonedDocument) {
-            clonedDocument.querySelectorAll(".no-pdf").forEach(function (node) { node.remove(); });
-            clonedDocument.body.style.padding = "0";
-            clonedDocument.body.style.backgroundColor = bg;
-            clonedDocument.querySelectorAll(".card, .kpi, .panel").forEach(function (node) {
-              node.style.breakInside = "avoid";
-              node.style.pageBreakInside = "avoid";
-            });
-          }
-        },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-        pagebreak: { mode: ["css", "legacy"], avoid: [".card", ".kpi", ".sec", ".panel"] }
-      }).from(target).save();
-    } catch (error) {
-      console.error("PDF-Export fehlgeschlagen:", error);
-      alert("Das PDF konnte nicht erstellt werden. Prüfe bitte deine Internetverbindung und versuche es erneut.");
-    } finally {
-      button.disabled = false;
-      button.textContent = originalLabel;
-    }
-  });
 </script>
 </body>
 </html>
