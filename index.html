@@ -28,7 +28,7 @@
   .sr { position: absolute; left: -9999px; }
 
   /* Kopfband mit Titel und Sprachwahl */
-  .band { background: var(--band); color: var(--band-ink); padding: 1.5rem 0 4.4rem; }
+  .band { display: block; background: var(--band); color: var(--band-ink); padding: 1.3rem 0; border-bottom: 1px solid rgba(255, 255, 255, .08); }
   .band-in { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
   h1 { margin: 0; font: 600 clamp(1.45rem, 4.6vw, 2.05rem)/1.2 var(--serif); letter-spacing: -.01em; }
   .testflag { margin: .4rem 0 0; font: 600 .8rem var(--sans); color: #ffd9a0; }
@@ -41,8 +41,8 @@
   .langsel select option { color: #1b2a2e; background: #fff; }
   body[data-stage="intro"] .langsel { display: none; }
 
-  /* Karte, die das Band überlappt */
-  main.wrap { margin-top: -2.8rem; padding-bottom: 3rem; }
+  /* Karte unter dem Kopfband (kein Überlappen mehr) */
+  main.wrap { display: block; margin-top: 1.6rem; padding-bottom: 3rem; }
   .shell { background: var(--card); border-radius: 20px; box-shadow: var(--shadow); overflow: hidden; }
   #progress-wrap { padding: 1.2rem 1.7rem 0; }
   .progress { height: 6px; background: var(--line); border-radius: 999px; overflow: hidden; }
