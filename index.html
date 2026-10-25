@@ -28,9 +28,9 @@
   .sr { position: absolute; left: -9999px; }
 
   /* Kopfband mit Titel und Sprachwahl */
-  .band { display: block; background: var(--band); color: var(--band-ink); padding: 1.3rem 0; border-bottom: 1px solid rgba(255, 255, 255, .08); }
-  .band-in { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-  h1 { margin: 0; font: 600 clamp(1.45rem, 4.6vw, 2.05rem)/1.2 var(--serif); letter-spacing: -.01em; }
+  .band { display: block; background: var(--band); color: var(--band-ink); padding: 2.6rem 0 2.2rem; border-bottom: 1px solid rgba(255, 255, 255, .08); }
+  .band-in { display: flex; align-items: center; justify-content: center; text-align: center; gap: 1rem; }
+  h1 { margin: 0; text-align: center; font: 600 clamp(1.45rem, 4.6vw, 2.05rem)/1.2 var(--serif); letter-spacing: -.01em; }
   .testflag { margin: .4rem 0 0; font: 600 .8rem var(--sans); color: #ffd9a0; }
   .langsel select {
     appearance: none; -webkit-appearance: none; width: auto; cursor: pointer;
@@ -149,7 +149,6 @@
 <header class="band">
   <div class="wrap band-in">
     <h1 id="h1"></h1>
-    <label class="langsel"><span class="sr" id="lang-lbl"></span><select id="lang"></select></label>
   </div>
 </header>
 <main class="wrap">
@@ -185,7 +184,6 @@ const bar = document.getElementById("bar");
 const counter = document.getElementById("counter");
 const progress = document.querySelector(".progress");
 const progressWrap = document.getElementById("progress-wrap");
-const sel = document.getElementById("lang");
 
 // ---------- Sprache ----------
 function pickLang() {
@@ -221,8 +219,6 @@ function applyStatic() {
   document.documentElement.lang = lang;
   document.title = TR[lang].pre.title;
   document.getElementById("h1").textContent = TR[lang].pre.title;
-  document.getElementById("lang-lbl").textContent = t("lang");
-  sel.value = lang;
 }
 
 function optionHTML(type, name, value, label, checked) {
@@ -297,7 +293,7 @@ function renderQuestion() {
     <p class="error" id="error" role="alert"></p>
     <p class="skiphint">${esc(t("skipHint"))}</p>
     <div class="nav">
-      <button type="button" class="btn-secondary" id="back">${esc(t("back"))}</button>
+      <button type="button" class="btn-secondary" id="back" ${step(current, -1) < 0 ? 'style="visibility:hidden" disabled' : ""}>${esc(t("back"))}</button>
       <button type="button" class="btn-primary" id="next">${esc(isLast ? t("finish") : t("next"))}</button>
     </div>`;
 
@@ -375,7 +371,8 @@ function goBack() {
   const q = SPEC[current];
   try { save(q, collect(q)); } catch (_) {}
   const n = step(current, -1);
-  if (n < 0) stage = "intro"; else current = n;
+  if (n < 0) return;
+  current = n;
   render(); window.scrollTo(0, 0);
 }
 
@@ -383,7 +380,6 @@ function setLang(l) {
   if (stage === "q") { try { const q = SPEC[current]; save(q, collect(q)); } catch (_) {} }
   lang = l; applyStatic(); render();
 }
-sel.addEventListener("change", e => setLang(e.target.value));
 
 // ---------- Ergebnis ----------
 function fmt(q, a) {
@@ -397,7 +393,6 @@ function fmt(q, a) {
 
 function showResult() {
   stage = "done";
-  sel.disabled = true;
   // Antworten von Fragen, die nicht (mehr) angezeigt werden, verwerfen
   const vis = SPEC.map((q, i) => visible(i));
   SPEC.forEach((q, i) => { if (!vis[i]) { delete answers[q.id]; delete answers[q.id + "_anderes"]; if (q.extra) delete answers[q.extra]; } });
@@ -431,7 +426,6 @@ function download() {
 }
 
 // ---------- Start ----------
-sel.innerHTML = LANGS.map(c => `<option value="${c}">${esc(TR[c].ui.name)}</option>`).join("");
 applyStatic();
 render();
 </script>
